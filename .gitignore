@@ -1,0 +1,107 @@
+# ==========================
+# Python Cache / Compiled Files
+# ==========================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ==========================
+# Virtual Environments
+# ==========================
+venv/
+env/
+ENV/
+.venv/
+.virtualenv/
+
+# ==========================
+# Environment Variables
+# ==========================
+.env
+.env.*
+!.env.example
+
+# ==========================
+# Distribution / Packaging
+# ==========================
+build/
+dist/
+*.egg-info/
+.eggs/
+wheels/
+pip-wheel-metadata/
+
+# ==========================
+# Testing
+# ==========================
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# ==========================
+# Type Checking / Linters
+# ==========================
+.mypy_cache/
+.dmypy.json
+.pyre/
+.ruff_cache/
+
+# ==========================
+# Jupyter Notebook
+# ==========================
+.ipynb_checkpoints/
+
+# ==========================
+# IDE / Editors
+# ==========================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ==========================
+# OS Files
+# ==========================
+.DS_Store
+Thumbs.db
+
+# ==========================
+# Logs
+# ==========================
+*.log
+
+# ==========================
+# Database Files
+# ==========================
+*.sqlite3
+*.db
+
+# ==========================
+# Local Config / Secrets
+# ==========================
+config.ini
+secrets.json
+credentials.json
+
+# ==========================
+# ML / Data Science (optional)
+# ==========================
+*.pkl
+*.pickle
+*.h5
+*.joblib
+models/
+data/raw/
+data/processed/
+
+# ==========================
+# Temporary Files
+# ==========================
+*.tmp
+*.temp
+*.bak
+
+data/
