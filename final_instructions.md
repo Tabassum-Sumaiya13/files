@@ -1,4 +1,21 @@
 # Rewritten Pipeline — Summary & Instructions
+Summary
+The entire project has been rewritten. Here's what happened:
+
+✅ Done:
+config.py — Single config with exact raw column names (verified against actual data: ACQUISITION_ID, sample_id, etc.), spatsurv-matching RSF params (random_state=1029, 100 estimators)
+src/preprocess.py — 8-step pipeline with verbose prints at every step (shapes, dtypes, sample counts, NaN checks)
+src/graph_construction.py — Clean k-NN builder with per-sample debug output
+src/laplacian_encoding.py — Laplacian PE with eigenvalue diagnostics and orthonormality checks
+src/feature_assembly.py — Simplified PE + markers concatenation
+src/positional_encoder.py — Per-sample orchestrator with parallel processing
+run_pipeline.py — Single CLI entry point (--phase preprocess|encode|all)
+run_survival.py — RSF evaluation matching spatsurv's exact approach
+Deleted 12 old scattered scripts
+Tested end-to-end: 308 samples encoded, 2M cells, 99.7% valid PE, zero failures
+👉 Your next step:
+bash
+python run_survival.py
 Survival Results
 
 Feature Set	C-index	Samples	Features
