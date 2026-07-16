@@ -1,0 +1,403 @@
+<title>FYDP — What We Tested, What We Found, What's Next</title>
+
+<style>
+  :root {
+    --ground: #fcfbf9; --panel: #ffffff; --sunk: #f3f1ec; --ink: #1a1a18;
+    --ink-2: #56534d; --ink-3: #8b8780; --rule: #e4e0d8; --rule-2: #cdc8bd;
+    --teal: #00897b; --amber: #a85a00;
+    --teal-w: rgba(0,137,123,.10); --amber-w: rgba(168,90,0,.10);
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+    --ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  }
+  @media (prefers-color-scheme: dark) { :root {
+    --ground: #15151a; --panel: #1d1d23; --sunk: #121216; --ink: #edebe7;
+    --ink-2: #a9a59d; --ink-3: #74716a; --rule: #31313a; --rule-2: #44444e;
+    --teal: #12a396; --amber: #c4832a;
+    --teal-w: rgba(18,163,150,.13); --amber-w: rgba(196,131,42,.13); } }
+  :root[data-theme="dark"] {
+    --ground: #15151a; --panel: #1d1d23; --sunk: #121216; --ink: #edebe7;
+    --ink-2: #a9a59d; --ink-3: #74716a; --rule: #31313a; --rule-2: #44444e;
+    --teal: #12a396; --amber: #c4832a;
+    --teal-w: rgba(18,163,150,.13); --amber-w: rgba(196,131,42,.13); }
+  :root[data-theme="light"] {
+    --ground: #fcfbf9; --panel: #ffffff; --sunk: #f3f1ec; --ink: #1a1a18;
+    --ink-2: #56534d; --ink-3: #8b8780; --rule: #e4e0d8; --rule-2: #cdc8bd;
+    --teal: #00897b; --amber: #a85a00;
+    --teal-w: rgba(0,137,123,.10); --amber-w: rgba(168,90,0,.10); }
+
+  * { box-sizing: border-box; }
+  body { background: var(--ground); color: var(--ink); font-family: var(--serif);
+         font-size: 17px; line-height: 1.65; margin: 0; padding: 0 22px 90px;
+         -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  h1,h2,h3 { text-wrap: balance; line-height: 1.2; }
+  p { margin: 0 0 14px; max-width: 68ch; }
+  code { font-family: var(--mono); font-size: .84em; background: var(--sunk);
+         padding: 2px 5px; border-radius: 3px; border: 1px solid var(--rule); }
+  strong { font-weight: 600; }
+  a { color: var(--teal); }
+
+  header { padding: 62px 0 28px; border-bottom: 2px solid var(--ink); margin-bottom: 36px; }
+  .eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .16em;
+             text-transform: uppercase; color: var(--ink-3); margin-bottom: 16px; }
+  h1 { font-size: 40px; margin: 0 0 14px; font-weight: 600; letter-spacing: -.02em; }
+  .sub { font-size: 19px; color: var(--ink-2); margin: 0; max-width: 64ch; }
+
+  h2 { font-size: 14px; font-family: var(--mono); font-weight: 600; letter-spacing: .06em;
+       text-transform: uppercase; margin: 62px 0 18px; padding-bottom: 9px;
+       border-bottom: 1px solid var(--rule-2); display: flex; gap: 11px; align-items: baseline; }
+  h2 .n { color: var(--teal); font-size: 12px; }
+  h3 { font-size: 18px; margin: 30px 0 9px; font-weight: 600; }
+
+  .tldr { background: var(--panel); border: 1px solid var(--rule); border-left: 3px solid var(--teal);
+          border-radius: 3px; padding: 22px 24px; margin: 26px 0; }
+  .tldr.warn { border-left-color: var(--amber); }
+  .tldr .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: .14em;
+               text-transform: uppercase; color: var(--teal); margin-bottom: 9px; }
+  .tldr.warn .lbl { color: var(--amber); }
+  .tldr p:last-child { margin-bottom: 0; }
+
+  .tbl { overflow-x: auto; margin: 20px 0; border: 1px solid var(--rule); border-radius: 3px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; font-family: var(--ui); }
+  th { text-align: left; font-family: var(--mono); font-size: 10px; letter-spacing: .09em;
+       text-transform: uppercase; color: var(--ink-3); font-weight: 600; padding: 11px 13px;
+       background: var(--sunk); border-bottom: 1px solid var(--rule-2); white-space: nowrap; }
+  td { padding: 11px 13px; border-bottom: 1px solid var(--rule); vertical-align: top; color: var(--ink-2); }
+  td:first-child { color: var(--ink); font-weight: 600; }
+  tr:last-child td { border-bottom: none; }
+  .m { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 13px; white-space: nowrap; }
+  .good td:first-child { color: var(--teal); }
+  .bad td:first-child { color: var(--amber); }
+  .good { background: var(--teal-w); }
+
+  /* ladder */
+  .ladder { margin: 24px 0; }
+  .rung { display: grid; grid-template-columns: 210px 1fr 62px; gap: 13px; align-items: center; margin-bottom: 10px; }
+  .rung .lb { font-family: var(--ui); font-size: 12.5px; color: var(--ink-2); text-align: right; line-height: 1.3; }
+  .tr { background: var(--sunk); border: 1px solid var(--rule); border-radius: 3px; height: 24px; position: relative; }
+  .fl { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 0 4px 4px 0; background: var(--teal); }
+  .fl.a { background: var(--amber); }
+  .fl.g { background: var(--ink-3); }
+  .rung .v { font-family: var(--mono); font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+  .nullband { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(45deg,
+              transparent, transparent 3px, var(--rule-2) 3px, var(--rule-2) 4px); opacity: .8; }
+  .cap { font-size: 12.5px; color: var(--ink-3); font-family: var(--ui); margin-top: 8px;
+         max-width: 68ch; line-height: 1.5; }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; font-family: var(--ui); font-size: 12px;
+            color: var(--ink-2); margin-bottom: 15px; }
+  .legend span { display: flex; align-items: center; gap: 6px; }
+  .sw { width: 11px; height: 11px; border-radius: 2px; }
+
+  /* feature diagram */
+  .fdiag { display: grid; grid-template-columns: auto 1fr; gap: 20px; align-items: start;
+           background: var(--panel); border: 1px solid var(--rule); border-radius: 3px;
+           padding: 20px; margin: 20px 0; }
+  .grid16 { display: grid; grid-template-columns: repeat(16, 12px); gap: 1px; }
+  .grid16 i { width: 12px; height: 12px; background: var(--teal); border-radius: 1px; display: block; }
+  .strip { display: grid; grid-template-columns: repeat(16, 12px); gap: 1px; margin-bottom: 14px; }
+  .strip i { width: 12px; height: 12px; background: var(--amber); border-radius: 1px; display: block; }
+  .fdiag .txt { font-family: var(--ui); font-size: 13px; color: var(--ink-2); }
+  .fdiag .txt b { color: var(--ink); }
+
+  .ex { background: var(--sunk); border: 1px solid var(--rule); border-radius: 3px;
+        padding: 15px 17px; margin: 15px 0; font-family: var(--mono); font-size: 13px;
+        line-height: 1.7; overflow-x: auto; white-space: pre; }
+  .ex .c { color: var(--ink-3); }
+  .ex .hl { color: var(--teal); font-weight: 600; }
+  .ex .hlw { color: var(--amber); font-weight: 600; }
+
+  ul, ol { max-width: 68ch; padding-left: 21px; margin: 0 0 14px; }
+  li { margin-bottom: 7px; }
+  .steps { list-style: none; padding: 0; counter-reset: s; }
+  .steps > li { counter-increment: s; position: relative; padding-left: 38px; margin-bottom: 17px; }
+  .steps > li::before { content: counter(s); position: absolute; left: 0; top: 1px;
+    font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--teal);
+    border: 1px solid var(--teal); border-radius: 50%; width: 22px; height: 22px;
+    display: grid; place-items: center; }
+  footer { margin-top: 62px; padding-top: 20px; border-top: 1px solid var(--rule);
+           font-family: var(--ui); font-size: 12.5px; color: var(--ink-3); }
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">FYDP · UPMC HNSCC MIBI · full project summary</div>
+  <h1>Everything we tested, in plain English</h1>
+  <p class="sub">Six rounds of work on one question: does spatial positional encoding help predict survival? Here is what we tried, why, what happened, and what to do now.</p>
+</header>
+
+<div class="tldr">
+  <div class="lbl">The whole story in five lines</div>
+  <ul style="margin:0">
+    <li>The original pipeline's positional encoding was <strong>broken maths</strong> — it was secretly just counting cells.</li>
+    <li>Fixing the <strong>data handling</strong> (not the encoding) took the score from <strong>0.635 → 0.776</strong>.</li>
+    <li>We replaced the encoding with a better one (RWSE). It <strong>failed too</strong> — and we found out why.</li>
+    <li>The reason is a <strong>proof, not bad luck</strong>: in a flat tissue map, "how connected is a cell" and "how crowded is the tissue" are <strong>the same number</strong>.</li>
+    <li>A new design finally <strong>escaped that trap</strong> (density link dropped from 0.82 → 0.13). It's the live lead.</li>
+  </ul>
+</div>
+
+<h2><span class="n">01</span> First: what score are we even talking about?</h2>
+
+<p>Everything is measured with the <strong>C-index</strong>. Take any two patients. Did the model correctly say which one dies first? The C-index is how often it gets that right.</p>
+
+<div class="ex"><span class="hl">1.00</span>  perfect
+<span class="hl">0.78</span>  our best model today
+<span class="hlw">0.55</span>  <span class="c">← what you get from SHUFFLED (fake) labels on this data</span>
+<span class="c">0.50</span>  a coin flip</div>
+
+<div class="tldr warn">
+  <div class="lbl">Trap #1 we walked into</div>
+  <p>Random guessing here scores <strong>0.55, not 0.50</strong>. We measured this by shuffling the survival labels and re-running. So a model scoring 0.536 — like the original pipeline's encoding — is <strong>not "slightly better than chance."</strong> It is <em>worse</em> than chance. The old report treated 0.5 as the floor and read that number as a small win.</p>
+</div>
+
+<h2><span class="n">02</span> Round 1 — the audit: the encoding was broken</h2>
+
+<p><strong>Why we looked:</strong> you asked what was reducing performance.</p>
+
+<p>The pipeline built a graph of cells and took its Laplacian Eigenmaps (LE) — 8 numbers per cell, pooled into a mean block and a std block per sample. We checked what those 16 numbers actually contained:</p>
+
+<div class="ex"><span class="c">The 8 "std" features, every sample:</span>
+   std of eigenvector k  =  <span class="hl">1/√N</span>       <span class="c">← N = number of cells. That's it.</span>
+
+<span class="c">Proof (2 lines of maths, verified in code):</span>
+   eigenvectors are orthonormal → each has length 1  → std = √(1/N − mean²)
+   they're orthogonal to the trivial one            → mean ≈ 0
+                                                    → <span class="hl">std ≈ 1/√N</span>
+
+<span class="c">So we tested it:</span>
+   the 8 PE "std" features alone .... C = <span class="hlw">0.5491</span>
+   just the cell count, one number ... C = <span class="hlw">0.5495</span>   <span class="c">← identical</span></div>
+
+<p>Eight "spatial" features were eight copies of one number: how many cells are in the image. The 8 "mean" features were near-zero rounding noise.</p>
+
+<h3>And the comparison it was benchmarked against was also broken</h3>
+
+<p>"Raw Coordinates" was supposed to be the honest baseline. It pooled the X/Y coordinates — but the coordinates had already been z-scored per sample, which forces every sample's mean to 0 and std to 1. So:</p>
+
+<div class="ex"><span class="c">variance of "Raw Coordinates" across all 308 samples:</span>
+   <span class="hlw">8.6e-17</span>   <span class="c">← that is zero. Every sample had the identical feature vector.</span></div>
+
+<div class="tldr warn">
+  <div class="lbl">The headline claim was two encodings of cell count</div>
+  <p>The original report's win — <em>"PE beats raw coordinates, 0.536 vs 0.526"</em> — compared <strong>cell-count-in-disguise</strong> against <strong>a constant</strong>. Both below the 0.55 chance line. There was no result there.</p>
+</div>
+
+<h3>Also found in the data handling</h3>
+
+<div class="tbl"><table>
+  <thead><tr><th>Problem</th><th>What it means in plain English</th></tr></thead>
+  <tbody>
+    <tr><td>Normal mucosa included</td><td>26 healthy-tissue samples were being asked to predict cancer survival. The baseline paper excludes them; the pipeline didn't.</td></tr>
+    <tr><td>46 "DOC" deaths counted as cancer deaths</td><td>DOC = <em>died of other causes</em> (heart attack, etc). Counting these as cancer deaths teaches the model the wrong thing. They should be censored.</td></tr>
+    <tr><td>X/Y z-scored per sample</td><td>Each tissue was individually stretched to fit a unit box. <strong>284 of 308</strong> samples got warped by more than 5%; the worst was squashed 3× in one direction. Real distances were destroyed.</td></tr>
+    <tr><td>Only 27 of 81 patients have events</td><td>This is the real ceiling on everything. More on this below.</td></tr>
+    <tr><td>3 of 10 CV folds had ≤3 events</td><td>Fold event counts: 8, 25, <strong>0</strong>, 9, 3, 11, 3, 14, 15, 15. One fold had zero — it can't score anything.</td></tr>
+  </tbody>
+</table></div>
+
+<h3>The fix ladder — none of it was the encoding</h3>
+
+<div class="ladder">
+  <div class="rung"><div class="lb">pipeline as-is</div>
+    <div class="tr"><div class="nullband" style="left:0;width:18.3%"></div><div class="fl g" style="width:45%"></div></div><div class="v">0.635</div></div>
+  <div class="rung"><div class="lb">+ exclude normal mucosa</div>
+    <div class="tr"><div class="nullband" style="left:0;width:18.3%"></div><div class="fl" style="width:68.7%"></div></div><div class="v">0.706</div></div>
+  <div class="rung"><div class="lb">+ use the neighbour matrix<br><span style="color:var(--ink-3)">(row-normalised)</span></div>
+    <div class="tr"><div class="nullband" style="left:0;width:18.3%"></div><div class="fl" style="width:76.7%"></div></div><div class="v">0.730</div></div>
+  <div class="rung"><div class="lb">+ censor DOC deaths</div>
+    <div class="tr"><div class="nullband" style="left:0;width:18.3%"></div><div class="fl" style="width:92%"></div></div><div class="v">0.776</div></div>
+  <div class="rung"><div class="lb">+ add PE back in</div>
+    <div class="tr"><div class="nullband" style="left:0;width:18.3%"></div><div class="fl a" style="width:83%"></div></div><div class="v">0.745</div></div>
+  <p class="cap">Bars scaled 0.30–0.85. Hatched band = the ~0.55 shuffled-label chance zone.
+  <strong>+0.141 came from data handling. The encoding, added back at the end, made it worse.</strong></p>
+</div>
+
+<h2><span class="n">03</span> Round 2 — your idea: weight the graph with biology</h2>
+
+<p><strong>Why:</strong> you asked whether the graph could carry marker/biology info instead of just X-Y geometry. Good instinct — pure geometry throws away 39 markers of information.</p>
+
+<p><strong>What we built:</strong> edges weighted by <em>both</em> closeness in space and similarity in markers:</p>
+
+<div class="ex">w<sub>ij</sub>  =  exp(−distance² / 2σ<sub>s</sub>²)   ×   exp(−marker difference² / 2σ<sub>f</sub>²)
+      <span class="c">└── close in space ──┘       └── similar biology ──┘</span></div>
+
+<p><strong>And we swapped LE for RWSE</strong> (random-walk structural encoding), because LE has a known flaw: its eigenvectors can flip sign or rotate freely, so sample A's "feature 3" isn't sample B's "feature 3" — they aren't comparable. RWSE has no sign and no basis. It asks: <em>release a random walker at this cell; what's the chance it's back here after t steps?</em> That is well-defined on every graph.</p>
+
+<h3>Result: it lost. All three times.</h3>
+
+<div class="tbl"><table>
+  <thead><tr><th>Design</th><th>n</th><th class="m">RWSE binary</th><th class="m">RWSE weighted</th><th class="m">Density only</th></tr></thead>
+  <tbody>
+    <tr><td>v1 random subsample</td><td>36</td><td class="m">0.444</td><td class="m">0.389</td><td class="m">0.528</td></tr>
+    <tr><td>v2 fixed 400µm crop</td><td>80</td><td class="m">0.441</td><td class="m">0.438</td><td class="m">0.553</td></tr>
+    <tr class="good"><td>v3 full image <em>(definitive)</em></td><td>86</td><td class="m">0.526</td><td class="m">0.497</td><td class="m"><strong>0.639</strong></td></tr>
+  </tbody>
+</table></div>
+
+<p>Two things to notice. <strong>Marker weighting made it worse every single time</strong> — your specific idea, tested honestly, lost. And a <strong>5-number density control</strong> (cell count, density, degree, etc.) beat every clever representation we built.</p>
+
+<h3>Why it lost — the number that explains everything</h3>
+
+<div class="ex"><span class="c">Can we predict RWSE just from density? (R² = 1.0 means "perfectly")</span>
+   RWSE on plain graph ......... R² = <span class="hlw">0.72</span>   (12 of 16 dims above 0.5)
+   RWSE on marker-weighted ..... R² = <span class="hlw">0.82</span>   (16 of 16 dims above 0.5)  <span class="c">← WORSE</span></div>
+
+<p>RWSE was 72–82% just density wearing a costume. And <strong>weighting made it more density-bound, not less</strong> — because the marker kernel traps the walker inside pockets of similar cells, and pocket size is... density again.</p>
+
+<h2><span class="n">04</span> Round 3 — why it was doomed from the start</h2>
+
+<p><strong>Why we looked:</strong> you sent a paper on building weighted adjacency matrices and asked for valid mechanisms. Reading it sent us back to the graph itself.</p>
+
+<div class="tldr warn">
+  <div class="lbl">Trap #2: <code>k_neighbors = 10</code> is not a constant</div>
+  <p>A fixed <em>k</em> is a fixed <strong>rank</strong>, not a fixed <strong>distance</strong>. In a crowded sample the 10th-nearest neighbour is close; in a sparse one it's far away. Measured on your data:</p>
+  <div class="ex" style="margin-top:12px">the 10th neighbour sits at:   <span class="hlw">12.05 µm</span>  →  <span class="hlw">38.17 µm</span>   <span class="c">(3.17× spread)</span>
+correlation with density:      <span class="hlw">−0.835</span></div>
+  <p style="margin-top:12px">So the graph <strong>silently asks a different physical question of every sample</strong>, and density decides which one. It's the per-sample z-scoring bug again — hiding one level down, in a line that <em>looks</em> like a constant.</p>
+  <p style="margin-top:10px">Worse: your graph reaches ~18 µm. NCEM measured where real cell-to-cell signalling happens across 5 platforms — <strong>69 ± 14 µm</strong>. The graph is about <strong>4× too small to see the biology</strong>.</p>
+</div>
+
+<h3>The proof: connectivity and crowding are the same thing</h3>
+
+<div class="ladder">
+  <div class="legend">
+    <span><i class="sw" style="background:var(--teal)"></i>mean degree (connections per cell)</span>
+    <span><i class="sw" style="background:var(--amber)"></i>how much it varies between samples</span>
+  </div>
+  <div class="rung"><div class="lb">kNN, k=10<br><span style="color:var(--ink-3)">your pipeline</span></div>
+    <div class="tr"><div class="fl" style="width:38%"></div><div class="fl a" style="width:0.8%;border-left:2px solid var(--panel)"></div></div><div class="v">11.19</div></div>
+  <div class="rung"><div class="lb">radius = 30 µm</div>
+    <div class="tr"><div class="fl" style="width:95%"></div><div class="fl a" style="width:39%;border-left:2px solid var(--panel)"></div></div><div class="v">28.09</div></div>
+  <p class="cap">Correlation of degree with density: <strong>kNN −0.874</strong> · <strong>radius +0.927</strong>.</p>
+</div>
+
+<p>Look at the two extremes together and the trap is obvious:</p>
+
+<ul>
+  <li><strong>Fix <em>k</em></strong> → every cell has ~10 neighbours by construction. Degree barely moves (11.19 ± 0.23). The tiny bit that <em>does</em> move correlates with density at −0.874. <em>The walker has nothing left to measure except density.</em></li>
+  <li><strong>Use a radius</strong> → degree is free to move, but now degree = density × π r². <em>The walker is measuring density directly, by definition.</em></li>
+</ul>
+
+<div class="tldr">
+  <div class="lbl">The general result — this is a real finding, worth the thesis</div>
+  <p>In a flat (2-D) map of points, <strong>degree and density are the same variable</strong>. You can pin it and have nothing to measure, or free it and measure density. <strong>There is no third option reachable by changing the geometry</strong> — no value of k, σ, or walk length escapes it.</p>
+  <p style="margin-top:11px">So RWSE's R² of 0.82 wasn't bad luck or a tuning failure. It was the only thing that could have happened. <strong>The escape isn't a better geometric graph — it's putting biology on the edges so the thing you measure stops being a function of point spacing.</strong></p>
+</div>
+
+<h2><span class="n">05</span> Round 4 — the design that finally escaped</h2>
+
+<p><strong>Why:</strong> the paper you sent (STMGAMF) turned out to argue <em>against</em> what we'd built. It does <strong>not</strong> multiply space × biology into one weight. It keeps <strong>two separate graphs</strong> and combines them later.</p>
+
+<div class="ex"><span class="hlw">what we built (lost):</span>   one graph,  weight = space × biology
+                          <span class="c">→ either term can veto an edge; biology carves density pockets</span>
+
+<span class="hl">what the paper does:</span>   two graphs,  A_spatial   and   A_marker,  kept apart
+                          <span class="c">→ geometry says WHO is adjacent; biology says WHAT they are</span></div>
+
+<p>We couldn't use their model — it's a GCN, and with 27 events you cannot train one. But <strong>you don't need the network, only the message-passing step.</strong> UTAG showed a GCN layer with the learned weights deleted is just one line:</p>
+
+<div class="ex">affinity = normalize(A, norm="l1")   <span class="c"># each cell's neighbours sum to 1</span>
+X = affinity @ X                     <span class="c"># each cell averages its neighbours. That's it.</span></div>
+
+<p>No training. Nothing to overfit. Repeat it 3× on each graph = a 3-layer GCN with the risky part removed.</p>
+
+<h3>Results</h3>
+
+<div class="tbl"><table>
+  <thead><tr><th>Question</th><th>Answer</th></tr></thead>
+  <tbody>
+    <tr><td>Is it too slow for 308 samples?</td><td><strong>No — 310 seconds</strong> for all 281 samples / 1,973,232 cells, on one machine, no GPU. Compute was never the constraint.</td></tr>
+    <tr class="good"><td>Did it escape the density trap?</td><td><strong>Yes.</strong> R² against density: <strong>0.13</strong>, with <strong>0 of 12</strong> dims above 0.5. RWSE was 0.82 with 16/16. This is the first representation in the project that isn't density in disguise.</td></tr>
+    <tr><td>Does it predict survival alone?</td><td><strong>0.657</strong> from just 12 features — above the 0.608 density floor, but below the 0.776 baseline.</td></tr>
+    <tr class="bad"><td>Does it improve the best model?</td><td><strong>Currently untestable.</strong> See below — this is the important part.</td></tr>
+  </tbody>
+</table></div>
+
+<h2><span class="n">06</span> The correction — a test I got wrong</h2>
+
+<p>I told you four times that <em>nothing</em> adds to the 0.776 baseline, because every block I added made it worse. Four out of four looked suspicious, so I ran the control I should have run first: <strong>add 12 columns of pure random noise.</strong></p>
+
+<div class="ladder">
+  <div class="legend">
+    <span><i class="sw" style="background:var(--ink-3)"></i>baseline</span>
+    <span><i class="sw" style="background:var(--amber)"></i>after adding a block</span>
+  </div>
+  <div class="rung"><div class="lb">baseline (272 features)</div>
+    <div class="tr"><div class="fl g" style="width:92%"></div></div><div class="v">0.776</div></div>
+  <div class="rung"><div class="lb"><strong>pure random noise</strong><br><span style="color:var(--ink-3)">8 seeds</span></div>
+    <div class="tr"><div class="fl a" style="width:78.3%"></div></div><div class="v">0.734</div></div>
+  <div class="rung"><div class="lb">RWSE weighted</div>
+    <div class="tr"><div class="fl a" style="width:80.7%"></div></div><div class="v">0.742</div></div>
+  <div class="rung"><div class="lb">two-view niches</div>
+    <div class="tr"><div class="fl a" style="width:77.5%"></div></div><div class="v">0.732</div></div>
+  <div class="rung"><div class="lb">CN proportions</div>
+    <div class="tr"><div class="fl a" style="width:75%"></div></div><div class="v">0.726</div></div>
+  <p class="cap">Bars scaled 0.30–0.85. <strong>Adding literal random numbers costs −0.041.</strong> Every "penalty" I reported was that same number. RWSE's −0.033 was actually <em>better</em> than noise.</p>
+</div>
+
+<div class="tldr warn">
+  <div class="lbl">What went wrong, and why it matters</div>
+  <p>The forest picks <code>√272 ≈ 16</code> features at random at each split. Add 12 new columns to 272 and they're offered <strong>~6% of the time</strong> — they almost never get chosen, they just dilute. Permutation importance confirms it: shuffling the added columns changes the score by <strong>−0.005 ± 0.012</strong>. <strong>The forest never even looks at them.</strong></p>
+  <p style="margin-top:11px">So the "+X makes it worse" test was measuring <strong>dilution</strong>, not usefulness. It never had the power to detect a good block, so it never had the power to condemn one. <strong>The RWSE verdict still stands</strong> — that rests on R² 0.82 and on RWSE-alone scoring 0.514 inside the chance band, both independent of this test. But one of its three legs was rotten, and I should have caught it before reporting it.</p>
+</div>
+
+<h2><span class="n">07</span> The real ceiling: 27 events</h2>
+
+<p>This is the constraint behind everything above, and it deserves a plain statement.</p>
+
+<div class="ex"><span class="c">The baseline the whole project is benchmarked against:</span>
+
+   272 features  ←  16 celltype proportions  +  256 neighbour-matrix cells (16×16)
+    27 events    ←  patients who actually died of cancer
+
+   events per variable  =  27 / 272  =  <span class="hlw">0.10</span>
+   the accepted rule of thumb for survival models is  <span class="hl">≥ 10</span></div>
+
+<p>You are <strong>100× below</strong> the standard guideline. The model has 10 knobs for every scrap of evidence. This is why adding anything dilutes, why folds swing ±0.16, and why a 0.027 environment change can swamp a claimed 0.010 effect.</p>
+
+<div class="tldr warn">
+  <div class="lbl">One more thing, from reading your pipeline today</div>
+  <p>Your <code>run_survival.py</code> builds five feature sets: Celltype (16), PE (16), Raw Coords (4), PE+Celltype (32), PE+Raw (20). <strong>The 256-feature neighbour matrix is never used.</strong> There are 308 <code>.npy</code> files sitting in <code>data/raw/k10/</code> — plus <code>k1</code> through <code>k20</code> — untouched by the pipeline. That unused folder is worth <strong>+0.024</strong> on its own, and it's already computed.</p>
+</div>
+
+<h2><span class="n">08</span> Where things actually stand</h2>
+
+<div class="tbl"><table>
+  <thead><tr><th>Method</th><th>Why we tried it</th><th>Result</th><th>Verdict</th></tr></thead>
+  <tbody>
+    <tr class="bad"><td>Laplacian PE<br><span style="font-weight:400;color:var(--ink-3)">the original</span></td><td>It was the pipeline's premise.</td><td class="m">0.536<br><span style="color:var(--ink-3)">= cell count</span></td><td><strong>Dead.</strong> Mathematically degenerate, below the chance line.</td></tr>
+    <tr class="bad"><td>Marker-weighted graph<br><span style="font-weight:400;color:var(--ink-3)">your idea</span></td><td>Geometry alone wastes 39 markers.</td><td class="m">lost 3/3</td><td><strong>Dead as built.</strong> Multiplying the kernels made it <em>more</em> density-bound (0.72→0.82).</td></tr>
+    <tr class="bad"><td>RWSE</td><td>Sign-free, basis-free — fixes LE's real flaw.</td><td class="m">0.514<br><span style="color:var(--ink-3)">inside chance</span></td><td><strong>Dead.</strong> Not noise, but 82% density. Proven unfixable by tuning.</td></tr>
+    <tr><td>Cellular Neighbourhoods</td><td>The field standard; encodes phenotype context.</td><td class="m">0.776<br><span style="color:var(--ink-3)">with celltype</span></td><td><strong>The champion.</strong> And half of it is already sitting unused on your disk.</td></tr>
+    <tr class="good"><td>Two-view propagation<br><span style="font-weight:400;color:var(--ink-3)">the new lead</span></td><td>Keeps space and biology apart, as the paper does.</td><td class="m">R² 0.13<br>0.657 alone</td><td><strong>Live.</strong> First design to break the density link. 12 features, 5 minutes, no training.</td></tr>
+  </tbody>
+</table></div>
+
+<h2><span class="n">09</span> What to do next</h2>
+
+<ol class="steps">
+  <li><strong>Shrink the baseline before testing anything else.</strong>
+  272 features against 27 events is why every comparison is mush. Reduce the 256 neighbour features to ~10–20 (PCA, or cluster them). Then a new 12-feature block competes on fair terms instead of being ignored 94% of the time. <strong>Nothing else you measure is trustworthy until this is fixed.</strong></li>
+
+  <li><strong>Re-run the "does it add?" test properly.</strong>
+  With the noise control included every time, as a permanent row. If a block can't beat 12 columns of random numbers, it isn't a result.</li>
+
+  <li><strong>Rebuild the graph: Delaunay + a 50 µm cap.</strong>
+  Parameter-free, so no per-sample-adaptive <em>k</em>. Euler's formula pins mean degree near 6 for <em>any</em> flat triangulation regardless of density — the density channel is closed by topology, not by hope. And it reaches the ~69 µm scale where biology actually happens.</li>
+
+  <li><strong>Push the two-view design, since it's the only thing that escaped.</strong>
+  It's your weighting instinct applied where it survives: geometry decides <em>who</em> is adjacent, biology decides <em>what they are</em>. Cheap, untrained, and already proven non-density-bound.</li>
+</ol>
+
+<div class="tldr">
+  <div class="lbl">And the honest framing for the thesis</div>
+  <p>The negative result <em>is</em> the contribution. <strong>"In a 2-D geometric graph, degree and density are the same variable, so no purely structural encoding can escape density"</strong> — that's a proof, it's supported by three independent measurements, and it explains why an entire family of methods cannot work on this data. That is worth more than a positive result you can't explain. The two-view escape is then the constructive half: here is what to do <em>instead</em>, and here is the evidence it breaks the link.</p>
+</div>
+
+<footer>
+  All numbers measured on the UPMC HNSCC MIBI cohort — 281 QC-passing non-normal-mucosa acquisitions, 81 patients, 27 with cancer events. Coordinates in real microns (0.377 µm/px), never z-scored. Every claim in this report was verified by running code, not by reading the previous documentation.
+</footer>
+
+</div>
