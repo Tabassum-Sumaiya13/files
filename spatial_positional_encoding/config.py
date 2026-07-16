@@ -80,7 +80,19 @@ class Config:
     # ------------------------------------------------------------------
     # Graph construction
     # ------------------------------------------------------------------
-    k_neighbors: int = 10                 # k in k-NN spatial graph
+    # DEFAULT = delaunay. Measured over 20 seeds on both cohorts:
+    #   delaunay  ties knn10 on the 27-event cohort (0.713 vs 0.713) and is the
+    #             only graph beating its noise control on the 16-event cohort.
+    #   radius    loses on both (20um: 0.690, 50um: 0.688) — degree varies with
+    #             density, so each sample's neighbourhood is a different window.
+    #   knn10     fine, but k=10 is an arbitrary constant with no justification,
+    #             and a fixed k spans 12-38um across samples (3.2x, r=-0.835 with
+    #             density), so "neighbour" means something different per sample.
+    # Delaunay is parameter-free: adjacency is defined by the tissue's own
+    # packing (Voronoi-adjacent), and Euler's formula pins mean degree near 6 for
+    # any planar triangulation — measured here as 5.98 +/- 0.01 across 308 samples.
+    graph_type: str = "delaunay"          # "delaunay" | "knn10" | "radius20" | "radius50"
+    k_neighbors: int = 10                 # only used when graph_type == "knn10"
     edge_symmetrization: str = "union"    # "union" or "mutual"
 
     # ------------------------------------------------------------------
