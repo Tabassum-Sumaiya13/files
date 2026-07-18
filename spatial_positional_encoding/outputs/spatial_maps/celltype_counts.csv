@@ -1,0 +1,17 @@
+,n_cells
+APC,78777
+B cell,136756
+CD4 T cell,195578
+CD8 T cell,161271
+Granulocyte,55415
+Lymph vessel,13251
+Macrophage,211303
+Naive immune cell,69124
+Stromal / Fibroblast,158552
+Tumor,225099
+Tumor (CD15+),125871
+Tumor (CD20+),43261
+Tumor (CD21+),111077
+Tumor (Ki67+),275647
+Tumor (Podo+),129357
+Vessel,70763
