@@ -275,6 +275,44 @@ def make_noise_block(index, n_features: int, seed: int = 0) -> pd.DataFrame:
     )
 
 
+def _is_noise(name: str) -> bool:
+    n = name.lower()
+    return n.startswith('noise') or '+ noise' in n
+
+
+def _add_width_matched_noise(feature_sets: Dict[str, pd.DataFrame],
+                             baseline_name: str,
+                             common: List[str],
+                             seed: int = 42) -> Dict[str, pd.DataFrame]:
+    """Ensure every `baseline + block` set has a noise control of IDENTICAL width.
+
+    A 272-wide block judged against a 28-wide noise control measures the width
+    difference, not the signal. Each real block gets a control built the same way
+    it was: baseline + (W - baseline_width) random columns.
+    """
+    base_df = feature_sets.get(baseline_name)
+    if base_df is None:
+        return feature_sets
+
+    base_w = base_df.loc[common].shape[1]
+    have = {feature_sets[nm].loc[common].shape[1]
+            for nm in feature_sets if _is_noise(nm)}
+    need = {feature_sets[nm].loc[common].shape[1]
+            for nm in feature_sets
+            if nm != baseline_name and not _is_noise(nm)}
+
+    out = dict(feature_sets)
+    for w in sorted(need - have):
+        k = w - base_w
+        if k <= 0:
+            continue  # standalone block narrower than the baseline; no control
+        noise = make_noise_block(base_df.index, k, seed=seed)
+        out[f'Celltype + Noise({k})'] = pd.concat([base_df, noise], axis=1, join='inner')
+        print(f"  [auto-noise] width-matched control added: Celltype + Noise({k}) "
+              f"-> {w} feats")
+    return out
+
+
 def load_neighbor_features(cfg, graph_name: str) -> pd.DataFrame:
     """Load a precomputed row-normalised neighbour matrix (see src/neighbor_features.py)."""
     path = cfg.processed_dir / "neighbor_features" / f"neighbor_{graph_name}.parquet"
@@ -283,6 +321,23 @@ def load_neighbor_features(cfg, graph_name: str) -> pd.DataFrame:
         return pd.DataFrame()
     df = pd.read_parquet(path)
     print(f"  [{graph_name:9s}] {df.shape[0]} samples x {df.shape[1]} features")
+    return df
+
+
+def load_marker_states(cfg) -> pd.DataFrame:
+    """Load the celltype-conditioned functional-marker node features.
+
+    See src/marker_states.py — 8 validated functional markers (Ki67, PDL1,
+    GranzymeB, PD1, ICOS, FoxP3, CD45RO, HLA-DR), each read in the celltype it
+    matters in. This is the only place per-cell marker expression (the node
+    feature) enters the survival model.
+    """
+    path = cfg.processed_dir / "neighbor_features" / "marker_states.parquet"
+    if not path.exists():
+        print(f"  [WARNING] {path.name} not found — run: python src/marker_states.py")
+        return pd.DataFrame()
+    df = pd.read_parquet(path)
+    print(f"  [markers  ] {df.shape[0]} samples x {df.shape[1]} features: {list(df.columns)}")
     return df
 
 
@@ -407,6 +462,7 @@ def run_validation(
     n_seeds: int,
     n_null_seeds: int,
     baseline_name: str = 'Celltype Proportions',
+    tag: str = '',
 ) -> pd.DataFrame:
     """
     Honest validation: for every feature set report
@@ -440,6 +496,14 @@ def run_validation(
           f"{len(np.unique(patients))} patients, {int(y_event.sum())} events")
     print(f"  Seeds: {n_seeds} (real), {n_null_seeds} (null)")
 
+    # --- width-matched dilution controls ---
+    # Every real block needs a noise block of its OWN width. Without this the
+    # verdict depended on which noise row happened to exist: `Celltype + delaunay`
+    # (272 feats, C=0.6899) read 'REAL SIGNAL' against Noise(256) in Experiment A
+    # and 'indistinguishable from noise' against Noise(12) in Experiment B —
+    # identical score, opposite verdict.
+    feature_sets = _add_width_matched_noise(feature_sets, baseline_name, common)
+
     # --- real scores first (needed as baseline for ΔC) ---
     real_scores: Dict[str, np.ndarray] = {}
     null_scores: Dict[str, np.ndarray] = {}
@@ -454,14 +518,13 @@ def run_validation(
 
     base = real_scores.get(baseline_name)
 
-    # The dilution reference: a same-width block of random numbers added to the
-    # baseline. Any real block must beat THIS, not merely beat zero.
-    noise_ref = None
-    for nm in real_scores:
-        if nm.lower().startswith('noise') or '+ noise' in nm.lower():
-            noise_ref = real_scores[nm]
-            noise_ref_name = nm
-            break
+    # The dilution reference, keyed BY WIDTH: a block of width W is judged only
+    # against a noise block of width W. Any real block must beat THIS, not
+    # merely beat zero.
+    noise_by_width: Dict[int, Tuple[str, np.ndarray]] = {}
+    for nm, sc in real_scores.items():
+        if _is_noise(nm):
+            noise_by_width[feature_sets[nm].loc[common].shape[1]] = (nm, sc)
 
     # --- build table ---
     rows = []
@@ -477,14 +540,17 @@ def run_validation(
         else:
             dmean = dlo = dhi = np.nan
 
-        # paired ΔC vs the NOISE block (the dilution-corrected test)
-        is_noise_row = noise_ref is not None and name == noise_ref_name
-        if (noise_ref is not None and not is_noise_row and name != baseline_name
-                and len(noise_ref) == len(real_scores[name])):
-            vn = real_scores[name] - noise_ref
+        # paired ΔC vs the WIDTH-MATCHED noise block (the dilution-corrected test)
+        is_noise_row = _is_noise(name)
+        ref = noise_by_width.get(n_feat)
+        if (ref is not None and not is_noise_row and name != baseline_name
+                and len(ref[1]) == len(real_scores[name])):
+            vn = real_scores[name] - ref[1]
             vn_mean, vn_lo, vn_hi = _ci(vn)
+            vn_ref = ref[0]
         else:
             vn_mean = vn_lo = vn_hi = np.nan
+            vn_ref = ''
 
         # verdict — judged against noise when available, else against baseline
         if np.isnan(rmean):
@@ -518,6 +584,7 @@ def run_validation(
             'Null_mean': nmean, 'Null_hi': nhi,
             'dC_mean': dmean, 'dC_lo': dlo, 'dC_hi': dhi,
             'vsNoise_mean': vn_mean, 'vsNoise_lo': vn_lo, 'vsNoise_hi': vn_hi,
+            'NoiseRef': vn_ref,
             'Verdict': verdict,
         })
 
@@ -543,7 +610,10 @@ def run_validation(
     print(f"    - dC vs NOISE: THE test. Same-width random block absorbs the dilution")
     print(f"      cost, so this isolates real signal. Signal only if its CI > 0.")
 
-    save_path = output_dir / "survival_validation.csv"
+    # Experiment-tagged so a later run cannot silently clobber an earlier
+    # experiment's results.
+    save_path = output_dir / (f"survival_validation_{tag}.csv" if tag
+                              else "survival_validation.csv")
     summary.to_csv(save_path, index=False)
     print(f"\n  Results saved: {save_path}")
     return summary
@@ -562,14 +632,27 @@ def main():
                         help="Number of CV seeds for the real score + CI")
     parser.add_argument('--n-null-seeds', type=int, default=10,
                         help="Number of CV seeds for the permutation null")
-    parser.add_argument('--experiment', default='pe', choices=['pe', 'A', 'B'],
+    parser.add_argument('--experiment', default='pe', choices=['pe', 'A', 'B', 'C'],
                         help="'pe' = PE vs celltype; 'A' = graph comparison "
                              "(readout fixed = neighbour matrix, graph is the variable); "
-                             "'B' = two-view niches vs the best graph readout")
+                             "'B' = two-view niches vs the best graph readout; "
+                             "'C' = 5 abundance-corrected enrichment scalars vs "
+                             "the 256-wide flattened readout")
     parser.add_argument('--exclude-normal', action='store_true',
                         help="Drop Normal mucosa acquisitions (the base paper does this)")
     parser.add_argument('--censor-doc', action='store_true',
                         help="Treat 'dead of other causes' as censored (cause-specific hazard)")
+    parser.add_argument('--with-markers', action='store_true',
+                        help="Add celltype-conditioned functional-marker NODE features "
+                             "(8 feats: Ki67/PDL1/GranzymeB/PD1/ICOS/FoxP3/CD45RO/HLA-DR). "
+                             "Appends a '+ Markers' variant to every Celltype-based set "
+                             "and a 'Markers alone' set. Run: python src/marker_states.py")
+    parser.add_argument('--marker-keep', default=None,
+                        help="Comma-separated marker column names to KEEP (drops the rest). "
+                             "Ranked strongest->weakest: cd4_foxp3, tcell_cd45ro, "
+                             "tumor_mac_pdl1, tumor_ki67, cd8_granzymeb, cd4_icos, cd4_pd1, "
+                             "apc_mac_hladr. Fewer, stronger markers = less dilution = "
+                             "tighter CI. Only used with --with-markers.")
     parser.add_argument('--n-splits', type=int, default=None,
                         help="CV folds (default from config=10). Lower it when events are "
                              "scarce: --censor-doc leaves 16 patient events, so 10 folds "
@@ -670,6 +753,48 @@ def main():
             feature_sets['Celltype + delaunay + TwoView'] = pd.concat(
                 [ct, nbr, tv], axis=1, join='inner')
 
+    elif args.experiment == 'C':
+        # ==============================================================
+        # EXPERIMENT C — 5 abundance-corrected scalars vs 256 flattened.
+        #   graph  FIXED = Delaunay (Experiment A winner)
+        #   cohort FIXED
+        #   variable = the readout width/correction
+        #
+        # The 256 P[i][j] columns are confounded with global composition, which
+        # the celltype baseline ALREADY supplies -> the block is largely a noisy
+        # copy of the baseline (dC = +0.012). Dividing by p_j removes the shared
+        # part, leaving only what abundance cannot explain. If the spatial signal
+        # is real but diluted, 5 corrected features should recover more of it
+        # than 256 raw ones. At ~27 patient events, EPV goes 0.099 -> 5.4.
+        #
+        # Width-matched noise controls — Noise(5) and Noise(256) — are generated
+        # automatically in run_validation().
+        # ==============================================================
+        _banner("EXPERIMENT C: 5 enrichment scalars vs 256 flattened")
+        ct = feature_sets.get('Celltype Proportions')
+        if ct is None:
+            print("  [ERROR] Celltype proportions required for Experiment C")
+            return
+
+        enr_path = cfg.processed_dir / "neighbor_features" / "enrichment.parquet"
+        if not enr_path.exists():
+            print(f"  [ERROR] {enr_path.name} missing — "
+                  f"run: python src/enrichment_features.py")
+            return
+        enr = pd.read_parquet(enr_path)
+        print(f"  [enrichment] {enr.shape[0]} samples x {enr.shape[1]} feats: "
+              f"{list(enr.columns)}")
+
+        feature_sets['Enrichment alone'] = enr
+        feature_sets['Celltype + Enrichment'] = pd.concat(
+            [ct, enr], axis=1, join='inner')
+
+        # reference: the base paper's flattened readout on the same graph
+        nbr = load_neighbor_features(cfg, 'delaunay')
+        if not nbr.empty:
+            feature_sets['Celltype + delaunay(256)'] = pd.concat(
+                [ct, nbr], axis=1, join='inner')
+
     else:
         # ==============================================================
         # Default: the PE experiment
@@ -702,6 +827,32 @@ def main():
             if not combined.empty:
                 feature_sets['PE + Raw Coords'] = combined
 
+    # --- node features: celltype-conditioned functional markers ---
+    # Appends a '+ Markers' variant to every Celltype-based set (baseline,
+    # delaunay, delaunay(256), Enrichment, ...) so each gets a paired ΔC vs its
+    # own no-marker version. The width-matched noise control is added
+    # automatically in run_validation(), so the honest verdict still applies.
+    if args.with_markers:
+        _banner("ADDING NODE FEATURES (celltype-conditioned functional markers)")
+        markers = load_marker_states(cfg)
+        if not markers.empty and args.marker_keep:
+            keep = [c.strip() for c in args.marker_keep.split(',')]
+            missing = [c for c in keep if c not in markers.columns]
+            if missing:
+                print(f"  [WARNING] --marker-keep names not found (ignored): {missing}")
+            markers = markers[[c for c in keep if c in markers.columns]]
+            print(f"  [marker-keep] reduced to {markers.shape[1]} markers: {list(markers.columns)}")
+        if not markers.empty:
+            base_names = [n for n in list(feature_sets)
+                          if n.startswith('Celltype')
+                          and 'Noise' not in n and 'Markers' not in n]
+            for name in base_names:
+                combo = pd.concat([feature_sets[name], markers], axis=1, join='inner')
+                if not combo.empty:
+                    feature_sets[f'{name} + Markers'] = combo
+                    print(f"  [+markers] {name} + Markers -> {combo.shape[1]} feats")
+            feature_sets['Markers alone'] = markers
+
     print(f"\n  Feature sets to evaluate: {list(feature_sets.keys())}")
 
     if len(feature_sets) < 1:
@@ -709,9 +860,19 @@ def main():
         return
 
     # --- Run seeded validation (real vs null vs baseline) ---
+    tag = args.experiment
+    if args.exclude_normal:
+        tag += '_exnorm'
+    if args.censor_doc:
+        tag += '_dod'
+    if args.with_markers:
+        n_mk = len(args.marker_keep.split(',')) if args.marker_keep else 8
+        tag += f'_mk{n_mk}'
+
     run_validation(
         survival, feature_sets, cfg, output_dir,
         n_seeds=args.n_seeds, n_null_seeds=args.n_null_seeds,
+        tag=tag,
     )
 
 
