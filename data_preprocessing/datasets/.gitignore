@@ -1,0 +1,4 @@
+# Never commit patient-level raw data or processed cohorts
+*/raw/
+*/processed/
+!_template/

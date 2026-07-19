@@ -1,3 +1,0 @@
-	method	auc_roc	auc_roc	auc_pr	auc_pr	f1	f1	acc	acc	bcc	bcc
-		mean	std	mean	std	mean	std	mean	std	mean	std
-0	DNE	0.8052	0.0153	0.8077	0.0225	0.616	0.2639	0.7003	0.0881	0.7003	0.0881
