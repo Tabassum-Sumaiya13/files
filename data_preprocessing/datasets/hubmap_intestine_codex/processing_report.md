@@ -12,8 +12,8 @@ What changed, in order, from the raw input files to the processed cohort now sit
 | normalise_markers | skipped — adapter_config.APPLY_ARCSINH=False, data already normalised |
 | merge_locations_expression | 2,603,217 location rows -> 2,603,217 merged rows (0 location rows had no matching expression row and were dropped) |
 | filter_small_samples | 66 -> 66 samples (dropped 0 sample(s) below MIN_CELLS_PER_SAMPLE=50: []) |
-| celltype_to_lineage | **[WARN]** 928,849 cells (35.7%) had a cell type not in CELLTYPE_MAP and were dropped: ['CD57+ Enterocyte', 'CD66+ Enterocyte', 'Cycling TA', 'Enterocyte', 'Goblet', 'MUC1+ Enterocyte', 'Neuroendocrine', 'Paneth', 'TA'] — add them to adapter_config.py to keep them |
+| celltype_to_lineage | all 2,603,217 cells mapped to a lineage: {'stromal': 972763, 'tumour': 928849, 'immune': 701605} |
 | normalise_coords | per-sample z-score applied to X, Y (matches spatial_positional_encoding/src/preprocess.py Step 5) |
 | merge_metadata | 66 -> 66 samples kept a survival label (0 sample(s) had no metadata row and were dropped) |
 | export | 66 sample parquet files -> D:\files\data_preprocessing\datasets\hubmap_intestine_codex\processed\samples, manifest -> D:\files\data_preprocessing\datasets\hubmap_intestine_codex\processed\manifest.parquet |
-| final_cohort | 1,674,368 cells, 66 samples, 8 patients, 0 events (0.0% event rate) |
+| final_cohort | 2,603,217 cells, 66 samples, 8 patients, 0 events (0.0% event rate) |
