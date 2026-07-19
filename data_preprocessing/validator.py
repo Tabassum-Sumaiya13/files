@@ -86,18 +86,30 @@ def validate_dataset(cfg) -> ValidationReport:
         else:
             report.add(f"dtype:{col}", "FAIL", f"{col} is not numeric — check for stray text/units in the raw column")
 
-    if pd.api.types.is_numeric_dtype(metadata[schema.SURVIVAL_TIME_COL]):
-        report.add("dtype:survival_day", "PASS", "numeric")
+    # Survival is OPTIONAL. If present, sanity-check its dtype; if absent, WARN
+    # (the cohort still ingests and can be feature-verified — only the separate,
+    # per-dataset survival check is unavailable).
+    has_survival = all(c in metadata.columns for c in schema.SURVIVAL_COLS)
+    if not has_survival:
+        missing_surv = [c for c in schema.SURVIVAL_COLS if c not in metadata.columns]
+        report.add("survival:present", "WARN",
+                   f"no survival columns {missing_surv} — cohort ingests for feature "
+                   f"work, but the survival downstream check won't run "
+                   f"(fill METADATA_COLUMN_MAP if this cohort has survival data)")
     else:
-        report.add("dtype:survival_day", "FAIL", "survival_day is not numeric")
+        report.add("survival:present", "PASS", "survival_day + survival_status present")
+        if pd.api.types.is_numeric_dtype(metadata[schema.SURVIVAL_TIME_COL]):
+            report.add("dtype:survival_day", "PASS", "numeric")
+        else:
+            report.add("dtype:survival_day", "FAIL", "survival_day is not numeric")
 
-    status_vals = set(pd.to_numeric(metadata[schema.SURVIVAL_STATUS_COL], errors="coerce").dropna().unique().tolist())
-    if status_vals <= {0.0, 1.0}:
-        report.add("dtype:survival_status", "PASS", "binary 0/1")
-    else:
-        report.add("dtype:survival_status", "WARN",
-                   f"unexpected values {sorted(status_vals)} (expected exactly {{0, 1}} — "
-                   f"0=censored/alive, 1=event/dead)")
+        status_vals = set(pd.to_numeric(metadata[schema.SURVIVAL_STATUS_COL], errors="coerce").dropna().unique().tolist())
+        if status_vals <= {0.0, 1.0}:
+            report.add("dtype:survival_status", "PASS", "binary 0/1")
+        else:
+            report.add("dtype:survival_status", "WARN",
+                       f"unexpected values {sorted(status_vals)} (expected exactly {{0, 1}} — "
+                       f"0=censored/alive, 1=event/dead)")
 
     # 4. Marker columns present --------------------------------------------
     marker_cols = cfg.marker_columns(expression)

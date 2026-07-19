@@ -132,9 +132,12 @@ def process_dataset(cfg, out_dir, log: ChangeLog = None) -> pd.DataFrame:
     n_before = merged[schema.ACQ_COL].nunique()
     merged = merged.merge(metadata_small, on=schema.ACQ_COL, how="inner")
     n_after = merged[schema.ACQ_COL].nunique()
+    # Survival is optional: it's carried through only if the metadata had it.
+    has_surv = all(c in merged.columns for c in schema.SURVIVAL_COLS)
     log.step("merge_metadata",
-             f"{n_before} -> {n_after} samples kept a survival label "
-             f"({n_before - n_after} sample(s) had no metadata row and were dropped)")
+             f"{n_before} -> {n_after} samples kept a metadata row "
+             f"({n_before - n_after} sample(s) had no metadata row and were dropped); "
+             f"survival {'present' if has_surv else 'ABSENT (survival-less cohort)'}")
 
     # --- Export one parquet per sample + a manifest -------------------------
     manifest_rows = []
@@ -147,8 +150,8 @@ def process_dataset(cfg, out_dir, log: ChangeLog = None) -> pd.DataFrame:
             schema.PATIENT_COL: g[schema.PATIENT_COL].iloc[0],
             "n_cells": len(g),
             "n_cell_types": g[schema.CLUSTER_LABEL_COL].nunique(),
-            schema.SURVIVAL_TIME_COL: g[schema.SURVIVAL_TIME_COL].iloc[0],
-            schema.SURVIVAL_STATUS_COL: g[schema.SURVIVAL_STATUS_COL].iloc[0],
+            schema.SURVIVAL_TIME_COL: g[schema.SURVIVAL_TIME_COL].iloc[0] if has_surv else np.nan,
+            schema.SURVIVAL_STATUS_COL: g[schema.SURVIVAL_STATUS_COL].iloc[0] if has_surv else np.nan,
             "file_path": str(path),
         })
     manifest = pd.DataFrame(manifest_rows)
@@ -156,12 +159,15 @@ def process_dataset(cfg, out_dir, log: ChangeLog = None) -> pd.DataFrame:
     (out_dir / "marker_columns.txt").write_text("\n".join(marker_cols), encoding="utf-8")
 
     log.step("export", f"{len(manifest)} sample parquet files -> {samples_dir}, manifest -> {out_dir / 'manifest.parquet'}")
+    if has_surv:
+        surv_note = (f"{int(manifest[schema.SURVIVAL_STATUS_COL].sum())} events "
+                     f"({manifest[schema.SURVIVAL_STATUS_COL].mean():.1%} event rate)")
+    else:
+        surv_note = "no survival (feature-verification cohort only)"
     log.step(
         "final_cohort",
         f"{int(manifest['n_cells'].sum()):,} cells, {len(manifest)} samples, "
-        f"{manifest[schema.PATIENT_COL].nunique()} patients, "
-        f"{int(manifest[schema.SURVIVAL_STATUS_COL].sum())} events "
-        f"({manifest[schema.SURVIVAL_STATUS_COL].mean():.1%} event rate)",
+        f"{manifest[schema.PATIENT_COL].nunique()} patients, {surv_note}",
     )
 
     return manifest

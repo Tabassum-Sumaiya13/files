@@ -24,7 +24,13 @@ SURVIVAL_STATUS_COL = "survival_status"  # 0 = censored/alive, 1 = event/dead
 
 LOCATIONS_REQUIRED = [ACQ_COL, CELL_COL, X_COL, Y_COL, CLUSTER_LABEL_COL]
 EXPRESSION_REQUIRED = [ACQ_COL, CELL_COL]  # marker columns checked separately
-METADATA_REQUIRED = [ACQ_COL, PATIENT_COL, SURVIVAL_TIME_COL, SURVIVAL_STATUS_COL]
+
+# Metadata: patient_id is required (patient-grouped CV can't run without it).
+# Survival is OPTIONAL — a cohort with no survival table still ingests and flows
+# through feature extraction + the dataset-agnostic verification (run_verify.py).
+# Survival is only needed for the separate, per-dataset survival downstream check.
+METADATA_REQUIRED = [ACQ_COL, PATIENT_COL]
+SURVIVAL_COLS = [SURVIVAL_TIME_COL, SURVIVAL_STATUS_COL]
 
 # ---------------------------------------------------------------------------
 # Canonical 16-type / 3-lineage cell taxonomy this project's UPMC cohort uses

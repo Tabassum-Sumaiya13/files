@@ -12,7 +12,7 @@ Then run:
 from pathlib import Path
 
 # A short, filesystem-safe name — must match the folder name under datasets/
-DATASET_NAME = "TEMPLATE_replace_me"
+DATASET_NAME = "CRC"
 
 # ---------------------------------------------------------------------------
 # 1. Where the raw files live. Put them in datasets/<name>/raw/ (gitignored —
