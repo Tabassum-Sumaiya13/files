@@ -1,8 +1,8 @@
 # data_preprocessing/
 
-Ingest an **external** spatial-proteomics cohort (CODEX, IMC, MIBI — anything
-with per-cell XY coordinates, protein markers, cell-type labels, and a linked
-survival table) and turn it into the exact schema
+Ingest an **external** spatial-proteomics cohort (CODEX, IMC, MIBI) — anything
+with per-cell XY coordinates, protein markers, cell-type labels, (a linked
+survival table if exist ) and turn it into the exact schema
 `spatial_positional_encoding/` expects, so its enrichment / node-marker /
 survival code can be evaluated on a second cohort for external validation
 (the gap flagged in `doc/RESULT_REPORT.md` §9 — every current result comes
