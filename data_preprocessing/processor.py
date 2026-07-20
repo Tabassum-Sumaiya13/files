@@ -141,7 +141,8 @@ def process_dataset(cfg, out_dir, log: ChangeLog = None) -> pd.DataFrame:
             std = grp[c].std()
             std = std if std > 1e-8 else 1e-8
             merged.loc[mask, c] = (grp[c] - grp[c].mean()) / std
-    log.step("normalise_coords", "per-sample z-score applied to X, Y (matches spatial_positional_encoding/src/preprocess.py Step 5)")
+    log.step("normalise_coords", "per-sample z-score applied to X, Y (same definition as the "
+                                 "retired per-cohort preprocessor, discarded/legacy_pipeline/src/preprocess.py Step 5)")
 
     # --- Attach survival metadata at the sample level -----------------------
     meta_cols = [c for c in [schema.ACQ_COL, schema.PATIENT_COL, schema.SURVIVAL_TIME_COL, schema.SURVIVAL_STATUS_COL]

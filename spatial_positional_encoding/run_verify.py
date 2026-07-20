@@ -72,7 +72,11 @@ def build_vocab(cohort, label_col: str, remap=None):
 
     lin_counter = {}
     cats_set = set()
-    for _, df in cohort.iter_samples(columns=[label_col, "lineage", "cluster_label"]):
+    # dict.fromkeys, not a bare list: when label_col == "cluster_label" a plain
+    # list repeats it, read_parquet returns duplicate columns, and df[label_col]
+    # is then a DataFrame whose .values are unhashable rows.
+    read_cols = list(dict.fromkeys([label_col, "lineage", "cluster_label"]))
+    for _, df in cohort.iter_samples(columns=read_cols):
         df = apply_remap(df, remap)
         lab = df[label_col].astype(str).values
         lin = df["lineage"].astype(str).values

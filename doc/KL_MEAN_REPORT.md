@@ -2,6 +2,15 @@
 
 **What it is, how it works, and everything we found.**
 
+> **Superseded numbers, 2026-07-20.** This deep dive was written against the
+> retired pipeline (now in [../discarded/legacy_pipeline/](../discarded/legacy_pipeline/))
+> on the **UPMC head & neck** cohort. The **definition and reasoning below are still
+> current** — `kl_mean` is computed identically by
+> [`src/spatial_features.py`](../spatial_positional_encoding/src/spatial_features.py) —
+> but the measured values, and the file paths it cites (`src/enrichment_features.py`,
+> `src/make_spatial_maps.py`), are not. Current numbers, on two cohorts at two
+> taxonomies: [RESULT_REPORT.md](RESULT_REPORT.md).
+
 Dataset: UPMC Head & Neck cohort. 307 samples, 81 patients, 2,061,102 cells, 16 cell types.
 Graph: Delaunay. All numbers below are measured, not estimated.
 

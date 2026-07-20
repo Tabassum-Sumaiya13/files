@@ -26,7 +26,6 @@ which measures 40 metal-tagged protein markers simultaneously at single-cell res
 | Patients | ~81 unique |
 | Samples (tissue regions) | 307 after QC (multiple regions per patient) |
 
-<<<<<<< HEAD
 * Each **sample** is one tissue region from one patient. 
 
 * A cell carries: X–Y coordinates, 40 arcsinh-normalised protein intensities, and a cell-type label.
@@ -37,11 +36,6 @@ The 16 cell types are three lineages:
 * **immune** (APC, B, CD4 T, CD8 T, Granulocyte, Macrophage, Naive immune)
 * **tumour** (Tumor and its CD15⁺/CD20⁺/CD21⁺/Ki67⁺/Podoplanin⁺ variants)
 * **stromal** (Lymph vessel, Stromal/Fibroblast, Vessel).
-=======
-Each **sample** is one tissue region from one patient. A cell carries: X–Y coordinates, 40 arcsinh-normalised protein intensities, and a cell-type label. Each patient carries a survival time (`survival_day`) and status (`survival_status`: 0 = alive/censored, 1 = dead), plus clinical fields (tissue type, HPV status, recurrence).
-
-The 16 cell types are three lineages: **immune** (APC, B, CD4 T, CD8 T, Granulocyte, Macrophage, Naive immune), **tumour** (Tumor and its CD15⁺/CD20⁺/CD21⁺/Ki67⁺/Podoplanin⁺ variants), and **stromal** (Lymph vessel, Stromal/Fibroblast, Vessel).
->>>>>>> b204b437f023a71d14b23046c0d3b66a57a3b8f0
 
 > **Note on cohort labels.** Two of the feature deep-dive reports describe the data as a *colorectal CODEX atlas (Schürch et al. 2020)*. That label is a documentation slip: the on-disk sample IDs (`UPMC_c…`), the clinical fields (HPV status, HNSCC tissue types), and the base paper all identify this as the **UPMC Head & Neck MIBI** cohort. Schürch 2020 is cited later only as *literature justification* for which functional markers to add (§8.3), not as the data source. The pipeline, protocol, and event counts are identical across all reports.
 
@@ -55,19 +49,11 @@ The 16 cell types are three lineages: **immune** (APC, B, CD4 T, CD8 T, Granuloc
 
 For survival evaluation, acquisitions are aggregated to the **patient level** and cross-validation is **grouped by patient** so that no patient's regions appear in both train and test folds. Two analysis framings are used: the **full cohort** (307 samples, includes Normal mucosa) for the graph-construction ablation, and an **exclude-normal / tumour-only** cohort for feature evaluation, because Normal mucosa regions carry no tumour architecture yet inherit the patient's outcome label (pure label noise). Event counts: ~103 acquisition-level events; ~27 unique patient-level events in the tumour-only cohort — a small-event regime that governs every design choice below.
 
-<<<<<<< HEAD
 
 
 ## 2. Baseline
 
 ### 2.1 celltype proportions
-=======
----
-
-## 2. Baseline
-
-### 2.1 Our baseline — celltype proportions
->>>>>>> b204b437f023a71d14b23046c0d3b66a57a3b8f0
 
 The baseline is the **celltype-proportion** feature set: for each sample, the fraction of cells of each of the 16 types (16 features summing to 1). It answers *"which cells are present"* with no spatial information, and it is the strongest single non-spatial feature in the base paper — so every spatial feature in this project must be shown to add signal **on top of it**.
 

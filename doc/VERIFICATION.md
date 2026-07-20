@@ -32,10 +32,18 @@ cd data_preprocessing
 python run_ingest.py --dataset UPMC      # baseline, has survival
 python run_ingest.py --dataset CRC       # survival-less — still ingests
 
-# Phase 2 — verify (the common, survival-independent matrix)
+# Phase 2 — verify the enrichment block (survival-independent)
 cd ../spatial_positional_encoding
 python run_verify.py --dataset CRC  --taxonomy lineage
 python run_verify.py --dataset UPMC --taxonomy native
+
+# Phase 2b — verify the node-marker block (also survival-independent)
+python run_verify_nodes.py --dataset CRC
+python run_verify_nodes.py --dataset UPMC
+
+# Phase 3 — optional; exits cleanly on a survival-less cohort
+python run_survival.py --dataset UPMC
+
 python run_pipeline.py --list            # what's ingested, and which have survival
 ```
 
@@ -95,27 +103,57 @@ Optional **separability** add-on (only when a categorical label exists, via
 dataset's own biological label (e.g. CRC `groups` = CLR/DII) plugs in — it is
 never survival.
 
-## Results on the two ingested cohorts (taxonomy = lineage)
+## A second block, verified the same way — node markers
 
-Both cohorts: **all 5 features STRONG.** Survival was used for neither.
+The enrichment block is not the only feature set. `run_verify_nodes.py` applies the
+same three tests to the **node-marker block**: 8 celltype-conditioned functional
+markers (the mean of one protein over *only* the cells of the type it is read in).
 
-| cohort | samples | survival | null-z range | spatial-specific | stability r |
-|---|---|---|---|---|---|
-| UPMC | 308 | yes (unused here) | 31 … 2141 | 0.55 … 1.00 | 0.97 … 0.99 |
-| CRC  | 140 | none | 4.6 … 93 | 0.85 … 1.00 | 0.62 … 0.96 |
+Two things differ, and both are deliberate:
 
-Per-feature CSVs: `datasets/<NAME>/processed/verification/verify_lineage.csv`.
+- **`null_z` becomes `cond_z`.** Node features are per-sample means and involve no
+  graph, so permuting cell-type labels makes the conditioning set a size-matched
+  random draw and the null becomes ~the bulk mean. `cond_z` therefore asks *is this
+  marker actually enriched in the cell type the feature is named for* — the premise
+  conditioning rests on. It is **not** a spatial claim.
+- **`spatial_specific` becomes `composition_specific`.** Identical computation,
+  honest name: node features carry no spatial information to be specific about.
 
-## New / changed files
+Conditioning is resolved per cohort **by Cell Ontology term** from
+`celltype_registry.csv`, so `cd4_pd1` becomes `['CD4 T cell']` on UPMC and the four
+CD4/Treg clusters on CRC with no hand mapping. Samples lacking the conditioning cell
+type are reported as unsupported, never zero-filled.
 
-- `data_preprocessing/schema.py`, `validator.py`, `processor.py` — survival made
-  **optional** (`METADATA_REQUIRED` drops survival; missing survival → WARN, not
-  FAIL; manifest survival = `NaN`).
-- `data_preprocessing/datasets/UPMC/adapter_config.py` — re-ingests the baseline
-  through the same path.
-- `spatial_positional_encoding/src/cohort.py` — loads a canonical cohort.
-- `spatial_positional_encoding/src/spatial_features.py` — Delaunay + the 5
-  enrichment scalars, generalised to any label column.
-- `spatial_positional_encoding/run_verify.py` — the verification matrix.
-- `spatial_positional_encoding/run_pipeline.py` — rewritten: PE removed, now the
-  ingest→verify orchestrator.
+A negative `cond_z` gets its own verdict, **CONTRADICTED** — the signal is real and
+reproducible but says the marker is *depleted* in its own celltype, falsifying the
+feature's premise rather than confirming it.
+
+## Results
+
+Current numbers for both blocks, both cohorts, both taxonomies, plus the optional
+survival downstream, live in **[RESULT_REPORT.md](RESULT_REPORT.md)** — kept there
+rather than duplicated here so there is one place to update.
+
+Headline: enrichment **5/5 STRONG on both cohorts at both taxonomies**; node markers
+**6/8 STRONG on both cohorts**; neither block's survival deltas exceed their own
+fold-to-fold spread.
+
+Per-cohort CSVs: `datasets/<NAME>/processed/verification/`.
+
+## The active file set
+
+| file | role |
+|---|---|
+| `data_preprocessing/schema.py`, `validator.py`, `processor.py` | ingest engine; survival is **optional** (missing → WARN, manifest survival = `NaN`) |
+| `data_preprocessing/registry.py`, `markers.py`, `lineage_evidence.py` | the cell-type registry, marker-name resolution, and the falsifiability gate |
+| `spatial_positional_encoding/src/cohort.py` | loads a canonical cohort |
+| `spatial_positional_encoding/src/spatial_features.py` | Delaunay + the 5 enrichment scalars |
+| `spatial_positional_encoding/src/node_features.py` | the 8 celltype-conditioned marker features |
+| `spatial_positional_encoding/run_verify.py` | enrichment matrix (+ `--perturb-map`, `--label-col`) |
+| `spatial_positional_encoding/run_verify_nodes.py` | node-marker matrix |
+| `spatial_positional_encoding/run_survival.py` | optional survival downstream |
+| `spatial_positional_encoding/run_pipeline.py` | orchestrator / dataset lister |
+
+Anything else that used to live under `spatial_positional_encoding/` has been
+retired to `discarded/legacy_pipeline/`, which documents what each module was and
+what replaced it.

@@ -1,7 +1,19 @@
 # Enrichment Features Report — Abundance-Corrected Spatial Scalars
 
-*Spatial survival pipeline. Colorectal cancer CODEX atlas. Companion to [KL_MEAN_REPORT.md](KL_MEAN_REPORT.md) (deep dive on the single strongest feature).*
-*Source: [spatial_positional_encoding/src/enrichment_features.py](spatial_positional_encoding/src/enrichment_features.py)*
+*Design rationale for the enrichment block. Cohort: **UPMC head & neck (HNSCC)**. Companion to [KL_MEAN_REPORT.md](KL_MEAN_REPORT.md) (deep dive on the single strongest feature).*
+
+> **Two corrections to this document, 2026-07-20.**
+>
+> 1. **Cohort.** Earlier versions described this data as a "colorectal CODEX atlas".
+>    It is the **UPMC head & neck** cohort. The colorectal (Schürch et al. 2020)
+>    data is the separate **CRC** cohort used for external validation.
+> 2. **Source and numbers are superseded.** `src/enrichment_features.py` has been
+>    retired to [../discarded/legacy_pipeline/](../discarded/legacy_pipeline/) —
+>    it was hardwired to UPMC's 16 integer cluster ids and prebuilt edge files. The
+>    same five scalars are now computed by
+>    [`src/spatial_features.py`](../spatial_positional_encoding/src/spatial_features.py)
+>    on any cohort. Current numbers: [RESULT_REPORT.md](RESULT_REPORT.md). The
+>    **feature definitions and reasoning below are still current.***
 
 ---
 

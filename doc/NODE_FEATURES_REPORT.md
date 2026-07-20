@@ -1,6 +1,22 @@
 # Node Features Report — Celltype-Conditioned Functional Markers
 
-*Spatial positional-encoding survival pipeline. Colorectal cancer CODEX atlas (Schürch et al. 2020).*
+*Design rationale for the node-marker block. Cohort: **UPMC head & neck (HNSCC)**.*
+
+> **Two corrections to this document, 2026-07-20.**
+>
+> 1. **Cohort.** Earlier versions described this data as a "colorectal CODEX atlas
+>    (Schürch et al. 2020)". It is not. The 2,061,102 cells / 308 samples /
+>    39 markers / 16 cell types described below are the **UPMC head & neck** cohort.
+>    Schürch et al. 2020 is cited here only as the *literature source for the marker
+>    shortlist* (§4.2), and separately supplies the **CRC** cohort, which is a
+>    different dataset used for external validation. Conflating the two would
+>    collapse the external-validation claim, since CRC would then validate nothing.
+> 2. **Numbers are superseded.** The C-index results below came from the retired
+>    pipeline (now in [../discarded/legacy_pipeline/](../discarded/legacy_pipeline/))
+>    under a different cohort framing and feature path. Current results — including
+>    the first label-free verification this block has ever had, on two cohorts — are
+>    in [RESULT_REPORT.md](RESULT_REPORT.md). The **design reasoning below is still
+>    current**; the measured values are not.
 
 ---
 

@@ -132,9 +132,16 @@ LINEAGE_VALIDATION_MARKERS = sorted({
 })
 
 # ---------------------------------------------------------------------------
-# Markers required by the celltype-conditioned node features
-# (spatial_positional_encoding/src/marker_states.py). Used to score how much
-# of that feature block a new cohort can reproduce.
+# Markers required by the celltype-conditioned node features. Used ONLY to score
+# how much of that block a new cohort can reproduce (validator check
+# `markers:node_features`).
+#
+# NOT the conditioning spec. The lineages listed here are too coarse to compute
+# the features with — 5 of the 8 would condition on plain "immune", making
+# cd4_foxp3 the mean of FoxP3 over B cells and granulocytes too. The real
+# conditioning is by Cell Ontology term, resolved per cohort from the registry in
+# spatial_positional_encoding/src/node_features.py. Keep this table in sync with
+# that module's FEATURES list (marker names and feature names only).
 # ---------------------------------------------------------------------------
 NODE_MARKER_FEATURES = {
     # feature_name: (marker, [lineages it's read in])

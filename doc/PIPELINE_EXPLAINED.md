@@ -1,5 +1,10 @@
 # The Pipeline, End to End — How It Works, What It Finds, What the Results Mean
 
+> **This document explains the mechanism.** For the results on their own —
+> what was run, what held up, what did not — see
+> [RESULT_REPORT.md](RESULT_REPORT.md). All numbers quoted here come from the same
+> clean end-to-end run of 2026-07-20.
+
 ## 0. What the project is actually trying to prove
 
 The data is spatial proteomics: for each tissue sample, a list of **cells**, each
@@ -53,8 +58,11 @@ spatial feature block is the abundance-corrected **enrichment** readout.
 | CRC | 140 | no | external validation cohort (Schürch et al. 2020) |
 | CRC_doublets | 140 | no | **measurement variant of CRC**, not a third cohort — see §5.3 |
 
-`keren_tnbc` and `hubmap_intestine_codex` have adapter configs but no
-`processed/` directory: they were never successfully ingested.
+Three other folders exist under `datasets/` but have **no `processed/` directory**
+— they were never successfully ingested and contribute nothing to any result:
+`keren_tnbc`, `hubmap_intestine_codex`, and `Ferguson` (whose `adapter_config.py`
+is still an unedited copy of `_template`). `python run_pipeline.py --list` is the
+authoritative answer to what is actually ingested.
 
 ---
 
@@ -313,6 +321,56 @@ It then prints plainly whether **any verdict moved**. Nothing here is
 dataset-specific: a new cohort gets its own scenarios with no code change, and a
 cohort with no contested rows gets only the baseline.
 
+### 4.4 The second matrix — node features (celltype-conditioned markers)
+
+`run_verify_nodes.py` gives the **node-marker block** the same treatment the
+enrichment block gets. A node feature is the mean of one protein marker over
+*only* the cells of the type it is biologically read in — Ki67 in tumour cells,
+GranzymeB in CD8 T cells. Eight of them, unchanged from doc/NODE_FEATURES_REPORT.md.
+
+**Conditioning is resolved by Cell Ontology term, not by hand.** Each feature names
+a set of CL terms; `celltype_registry.csv` maps `native_label → cl_term_id` per
+dataset; so the native labels a feature reads are *derived* per cohort:
+
+| feature | CL terms | UPMC resolves to | CRC resolves to |
+|---|---|---|---|
+| `cd4_pd1` | CD4 T, CD4 memory T, Treg | `CD4 T cell` | `CD4+ T cells`, `CD4+ T cells CD45RO+`, `CD4+ T cells GATA3+`, `Tregs` |
+| `tumor_ki67` | neoplastic cell | 6 `Tumor*` clusters | `tumor cells` |
+| `apc_mac_hladr` | prof. APC, DC, macrophage | `APC`, `Macrophage` | `CD11c+ DCs` + 4 macrophage clusters |
+
+Subsets are folded into their parent deliberately. UPMC has one `CD4 T cell`
+cluster containing its Tregs and memory cells; CRC splits both out. Folding them in
+is what makes `cd4_*` measure the same population in both cohorts rather than a
+systematically different one in each.
+
+This replaces `src/marker_states.py`, which conditions on hardcoded integer
+`CLUSTER_ID`s 0-15, reads bare marker names, and points at the pre-canonical
+layout — so it runs on UPMC only, and currently not even there. It also supersedes
+`schema.NODE_MARKER_FEATURES`, whose conditioning collapses to *lineage*: 5 of the
+8 features would condition on plain `immune`, making `cd4_foxp3` the mean of FoxP3
+over B cells, granulocytes and macrophages too — the exact bulk average the
+conditioning exists to avoid.
+
+**The three tests, reinterpreted.** Node features are per-sample means and involve
+no graph, so the metrics keep their computation but not their spatial reading:
+
+| metric | question for a node feature |
+|---|---|
+| `cond_z_median` | Permute cell-type labels, keeping each cell's markers attached. The conditioning set becomes a size-matched random draw, so the null is ~the bulk mean. **Is this marker actually enriched in this cell type, or would reading it anywhere give the same number?** This tests the premise conditioning rests on — and had never been tested. It is **not** a spatial claim. |
+| `composition_specific` | Identical computation to the enrichment block's `spatial_specific`, honestly renamed: does the marker state add beyond the cell-type mix? |
+| `stability_r` | Unchanged — is the conditioned mean taken over enough cells to reproduce on an independent half? |
+
+**Support is reported, never imputed.** `marker_states.py` zero-fills a sample with
+no cells of the conditioning type; on the arcsinh scale 0 means "no signal", but the
+truth is "no such cells" — a different statement that manufactures a data point.
+Here such a sample is `NaN` and excluded, and every row carries
+`n_samples_supported` and `median_cells`. A mean over 3 cells on half the cohort is
+not the same measurement as one over 3,000 on all of it.
+
+A negative `cond_z` gets its own verdict, **CONTRADICTED**, rather than STRONG: the
+signal is real and reproducible, but it says the marker is *depleted* in the cell
+type the feature is named for, which falsifies the feature's own premise.
+
 **`--label-col <col>`** (`separability()`, run_verify.py:265) is the optional 4th
 test, available only when a dataset has a categorical label in its manifest (e.g.
 CRC's CLR/DII `groups`): GroupKFold-by-patient classification AUC comparing
@@ -346,11 +404,22 @@ survival as a proof of the features — see §5.4 for what it actually returned.
 | immune_tumor | −9.4 | 0.87 | 0.88 | immune exclusion, real |
 | stroma_tumor | −4.6 | 0.85 | 0.80 | real, weakest of the five |
 
-**UPMC — native, 16 types** (`verify_native.csv`)
+**Native taxonomy — 16 types UPMC / 25 CRC** (`verify_native.csv`)
 
-Same story, and `self_enrich` jumps to **2.21** — at fine resolution, cells of a
-*specific* subtype self-segregate even harder than at the coarse lineage level. A
-sanity check that finer labels reveal finer structure, exactly as they should.
+| feature | UPMC z | CRC z | UPMC spec / stab | CRC spec / stab |
+|---|---|---|---|---|
+| `kl_mean` | +100.1 | +6.4 | 0.75 / 0.93 | 1.00 / 0.64 |
+| `kl_tumor` | +1250.5 | +57.4 | 0.58 / 0.99 | 1.00 / 0.89 |
+| `self_enrich` | +16.6 | +6.5 | 0.67 / 0.79 | 1.00 / 0.65 |
+| `immune_tumor` | −51.6 | −9.4 | 0.69 / 0.99 | 1.00 / 0.88 |
+| `stroma_tumor` | −52.2 | −4.6 | 0.60 / 0.97 | 1.00 / 0.81 |
+
+All 5 STRONG on both. `self_enrich`'s **mean roughly quadruples** at native
+resolution (UPMC 0.94 → 2.21, CRC 0.78 → 2.40): at fine resolution, cells of a
+*specific* subtype self-segregate harder than at the coarse lineage level. A sanity
+check that finer labels reveal finer structure, exactly as they should. CRC's
+composition-specificity hits 1.00 across the board here — with 25 categories the
+composition vector cannot linearly predict any of the five.
 
 **How to read a row in one sentence:** *"This feature is `null_z`
 standard-deviations away from random, composition can't explain `spatial_specific`
@@ -386,21 +455,87 @@ dropped. Its baseline (`kl_mean` z 92, `kl_tumor` 101, `self_enrich` 8.5,
 This is a measurement variant, **not independent evidence** — do not report it as
 a third cohort.
 
-### 5.4 Separability against survival status — a negative result
+### 5.4 Separability against survival status — an unstable result
 
-`separability_lineage_survival_status.csv` (UPMC):
+`separability_lineage_survival_status.csv` (UPMC), from the 2026-07-20 full re-run:
 
 | feature set | AUC | n_feats |
 |---|---|---|
-| Composition baseline | 0.603 | 3 |
-| Baseline + spatial block | **0.492** | 8 |
-| Baseline + noise | 0.628 | 8 |
-| Spatial block alone | 0.460 | 5 |
+| Composition baseline | 0.646 | 3 |
+| Baseline + spatial block | **0.703** | 8 |
+| Baseline + noise | 0.675 | 8 |
+| Spatial block alone | 0.633 | 5 |
 
-The spatial block does **not** predict UPMC survival status — it does worse than
-adding random noise to the same baseline. State this plainly: the features are
-verified as real, reproducible spatial structure; they are **not** verified as
-prognostic. Those are two different claims and this file separates them.
+On its face that is a pass — the block beats both the baseline and the
+width-matched noise control. **Do not report it as one.** The version of this same
+file committed before the re-run said the exact opposite (baseline 0.603, +spatial
+0.492, +noise 0.628 — a clear fail). The current numbers reproduce byte-for-byte
+across repeated runs on the current code and data, and the provenance of the older
+file could not be established.
+
+An endpoint whose sign flips between code states is not a basis for a claim in
+either direction. Treat this as evidence that **outcome analysis on this cohort is
+underpowered** (81 patients, 103 events, 5 folds), not as evidence that the block
+is or is not prognostic. The label-free results in §5.1–§5.3 and §5.5 are the ones
+that carry weight; they are what the pipeline was designed around, and they are
+stable.
+
+---
+
+### 5.5 The node-feature matrix — verified without any outcome data
+
+`verify_nodes_lineage.csv`, both cohorts, 20 permutations, baseline = 3-category
+composition. `cond_z` = enrichment in its own celltype; `comp_spec` = adds beyond
+the cell-type mix; `stab` = split-half.
+
+| feature | marker | UPMC cond_z | CRC cond_z | UPMC comp_spec / stab | CRC comp_spec / stab |
+|---|---|---|---|---|---|
+| `tumor_ki67` | Ki67 | **+20.7** | **+5.7** | 0.89 / 1.00 | 0.92 / 0.97 |
+| `tumor_mac_pdl1` | PDL1 | **−7.6** ⚠ | +0.4 ⚠ | 0.99 / 1.00 | 1.00 / 0.98 |
+| `cd8_granzymeb` | GranzymeB | **+23.3** | +0.3 ⚠ | 0.99 / 0.98 | 0.98 / 0.86 |
+| `cd4_pd1` | PD1 | **+9.0** | **+5.4** | 0.96 / 0.97 | 1.00 / 0.96 |
+| `cd4_icos` | ICOS | **+25.7** | **+7.3** | 1.00 / 1.00 | 1.00 / 0.97 |
+| `cd4_foxp3` | FoxP3 | **+4.3** | **+5.9** | 0.99 / 0.99 | 0.89 / 0.89 |
+| `tcell_cd45ro` | CD45RO | **+48.4** | **+14.0** | 0.97 / 0.99 | 0.99 / 0.96 |
+| `apc_mac_hladr` | HLA-DR | **+40.5** | **+3.4** | 0.96 / 0.99 | 1.00 / 0.94 |
+
+Verdicts: UPMC **7/8 STRONG**, 1 CONTRADICTED. CRC **6/8 STRONG**, 2 weak. Support
+is essentially complete on both (308/308 and ≥139/140 samples).
+
+**What this establishes.** The node-marker block is now verified as a *measurement*
+on two independent cohorts, with no survival, no outcome label, and no graph:
+
+- **Composition-specificity is 0.89–1.00 everywhere.** The cell-type mix explains
+  almost none of the marker state. This is the strongest single result in the
+  matrix and it is unsurprising in hindsight — *how much* of a cell type is present
+  and *what those cells are expressing* are close to orthogonal axes. It is exactly
+  the claim the block needs and it holds on both cohorts.
+- **Stability is 0.86–1.00 everywhere.** The conditioned means are reproducible.
+- **The two markers behind the project's best survival config (`cd4_foxp3` +
+  `tcell_cd45ro`, C = 0.733) are STRONG on both cohorts.** CRC cannot corroborate
+  the C-index, but it independently corroborates that those two features measure a
+  real, celltype-enriched, reproducible, non-abundance quantity. That is the part
+  of the claim that *can* be externally validated without survival, and it now is.
+
+**Two features fail, and the failures are informative:**
+
+- **`tumor_mac_pdl1` fails on both cohorts** — contradicted on UPMC (z = −7.6,
+  PDL1 *depleted* in tumour+macrophage relative to a random draw) and flat on CRC
+  (+0.4). Its composition-specificity and stability are near-perfect, so it is a
+  precise, reproducible measurement of something — just not of what its name says.
+  This is the one feature in the block whose premise is not supported by either
+  cohort's own data, and it should not be used without re-examining the
+  conditioning (PDL1 is broadly expressed; "tumour + macrophage" may simply be too
+  wide a set to be enriched against everything else).
+- **`cd8_granzymeb` is cohort-specific** — strongly enriched on UPMC (+23.3),
+  absent on CRC (+0.3, with only 35% of samples clearing |z| > 2). A feature that
+  behaves this differently across cohorts is not portable, whatever it does on
+  either one alone.
+
+Neither failure was visible from the survival result, and neither would have been
+found without this matrix. Note also that `real_mean` is **not** comparable across
+cohorts — UPMC arrives pre-arcsinh from source, CRC is arcsinh'd at ingest with
+cofactor 5. The three metrics are the comparable quantities; the raw means are not.
 
 ---
 
@@ -416,7 +551,13 @@ prognostic. Those are two different claims and this file separates them.
   still shown to work with evidence. That is the entire objective.
 - **The conclusion is robust to the mapping** (§5.2) and to the doublet exclusion
   (§5.3) — both demonstrated, not asserted.
-- **It does not extend to outcome prediction** (§5.4). Real ≠ prognostic.
+- **The node-marker block is now verified too** (§5.5) — 6 of 8 features STRONG on
+  both cohorts, including both markers behind the project's best legacy config,
+  with composition-specificity 0.89–1.00 throughout.
+- **None of it extends to outcome prediction on the evidence available** (§5.4,
+  §7). Every survival delta is smaller than its own fold-to-fold spread, and the
+  separability check reversed sign between code states. Real and reproducible ≠
+  prognostic — and this cohort cannot settle the second question either way.
 
 ---
 
@@ -424,11 +565,39 @@ prognostic. Those are two different claims and this file separates them.
 
 Survival is no longer part of proving the features work — it is a **separate,
 optional, per-dataset downstream question**: *"do these validated features also
-predict patient outcome?"* (`spatial_positional_encoding/run_survival.py`,
-RandomSurvivalForest + patient-grouped C-index). A dataset with survival gets that
-as a bonus; a dataset without it (CRC) is still fully verified by Phase 2. On
-UPMC, the separability check in §5.4 says the answer to that downstream question
-is currently **no**.
+predict patient outcome?"* A dataset with survival gets that as a bonus; a dataset
+without it (CRC) is still fully verified by Phase 2, and `run_survival.py` exits
+cleanly with an explanation rather than failing.
+
+`run_survival.py` was rewritten on the canonical cohort loader (the 880-line
+version tied to the old layout is retired). Protocol: RandomSurvivalForest, 100
+trees, `random_state=1029`, GroupKFold by `patient_id`, 10 folds — the same
+hyperparameters as the legacy runner. Every feature set is scored **on the same
+folds**, so deltas against the baseline are paired.
+
+UPMC (308 samples, 103 events, 81 patients):
+
+| feature set | C (lineage base) | C (native base) |
+|---|---|---|
+| Composition baseline | 0.605 | **0.635** |
+| Baseline + Enrichment | 0.626 | **0.652** |
+| Baseline + Nodes | **0.655** | 0.634 |
+| Baseline + Enrichment + Nodes | 0.622 | **0.659** |
+| Baseline + Noise (control) | 0.592 | 0.629 |
+
+Two things to take from this, both of which argue for caution:
+
+1. **The node block's gain is baseline-dependent.** Against the weak 3-category
+   baseline it adds +0.051; against the strong 16-category one it adds −0.001. Most
+   of its apparent prognostic value is information the finer cell-type composition
+   already carries. The enrichment block adds a smaller but *consistent* amount
+   under both baselines (+0.021 / +0.017) and beats the noise control under both.
+2. **Nothing here is statistically established.** Every delta is smaller than its
+   own fold-to-fold SD (e.g. +0.051 ± 0.121). With 81 patients this endpoint cannot
+   resolve effects of this size.
+
+Full table with the standard deviations and the noise deltas: `survival_<taxonomy>.csv`
+and [RESULT_REPORT.md](RESULT_REPORT.md) §7.
 
 ---
 
@@ -580,9 +749,18 @@ python run_verify.py --dataset CRC  --taxonomy lineage --perturb-map
 python run_verify.py --dataset UPMC --label-col survival_status   # optional 4th test
 python run_pipeline.py --list            # what's ingested, and which have survival
 
-# Optional per-dataset survival downstream (only if the cohort has survival)
-python run_survival.py
+# Phase 2b — the node-feature (celltype-conditioned marker) matrix
+python run_verify_nodes.py --dataset UPMC
+python run_verify_nodes.py --dataset CRC --n-perm 20
+
+# Phase 3 — optional survival downstream (exits cleanly if the cohort has none)
+python run_survival.py --dataset UPMC --taxonomy lineage
+python run_survival.py --dataset UPMC --taxonomy native
+python run_survival.py --dataset CRC              # "no usable survival" — not an error
 ```
+
+The complete command list that reproduces every published number is in
+[RESULT_REPORT.md](RESULT_REPORT.md) §10.
 
 ## 10. Key files
 
@@ -597,9 +775,17 @@ python run_survival.py
 | `data_preprocessing/processor.py` / `validator.py` / `schema.py` | ingest engine (survival optional) |
 | `spatial_positional_encoding/src/cohort.py` | loads a canonical cohort |
 | `spatial_positional_encoding/src/spatial_features.py` | Delaunay graph + 5 enrichment scalars |
-| `spatial_positional_encoding/run_verify.py` | Phase 2 — the verification matrix |
-| `spatial_positional_encoding/run_pipeline.py` | orchestrator (ingest → verify) |
-| `spatial_positional_encoding/run_survival.py` | optional per-dataset survival check |
+| `spatial_positional_encoding/src/node_features.py` | celltype-conditioned marker features, conditioned by CL term |
+| `spatial_positional_encoding/run_verify.py` | Phase 2 — the enrichment verification matrix |
+| `spatial_positional_encoding/run_verify_nodes.py` | Phase 2b — the node-feature verification matrix |
+| `spatial_positional_encoding/run_pipeline.py` | orchestrator / dataset lister |
+| `spatial_positional_encoding/run_survival.py` | Phase 3 — optional per-dataset survival check (RSF, GroupKFold by patient) |
+| `doc/RESULT_REPORT.md` | the results, on their own |
+| `discarded/legacy_pipeline/` | the retired pre-canonical pipeline + its results, kept for traceability |
+
+Everything not in this table under `spatial_positional_encoding/` has been retired;
+see `discarded/legacy_pipeline/README.md` for what each retired module was and what
+replaced it.
 
 ---
 
