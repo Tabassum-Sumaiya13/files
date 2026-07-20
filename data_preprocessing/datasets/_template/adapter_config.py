@@ -11,6 +11,8 @@ Then run:
 """
 from pathlib import Path
 
+import registry
+
 # A short, filesystem-safe name — must match the folder name under datasets/
 DATASET_NAME = "CRC"
 
@@ -73,25 +75,29 @@ def marker_columns(expression_df) -> list:
 
 
 # ---------------------------------------------------------------------------
-# 4. Cell-type taxonomy: map EVERY native cell-type label this cohort uses
-#    to one of "immune" | "tumour" | "stromal". Native types left out are
-#    flagged by the validator (WARN) and dropped during processing — so an
-#    incomplete map silently shrinks the cohort rather than crashing.
+# 4. Cell-type taxonomy — DO NOT write the mapping here.
 #
-#    Use spatial_positional_encoding/src/validate_groups.py's lineage-marker
-#    logic if you need to double check an ambiguous native type: a cell type
-#    should be CD45-high for immune, PanCK-high for tumour, and
-#    Vimentin/aSMA/CD31/Podoplanin-high for stromal.
+#    It lives in ../../celltype_registry.csv, one row per native cell-type
+#    label, so that it is cited, versioned, ontology-grounded and falsifiable
+#    rather than a bare dict. Add one row per native type of this cohort:
+#
+#      dataset,native_label,lineage,cl_term_id,cl_label,source,verified,notes,evidence_override
+#      MYCOHORT,CD8+ T cell,immune,CL:0000625,"CD8-positive, alpha-beta T cell",<paper>,no,,
+#
+#    Rules the validator enforces (see registry.py):
+#      * EVERY native label in the raw data needs a row, or ingest FAILs — an
+#        incomplete map can no longer silently shrink the cohort.
+#      * `lineage` must agree with what `cl_term_id` anchors to in
+#        schema.CL_LINEAGE_ANCHOR. Add the term there if it is new.
+#      * A blank `lineage` means "deliberately excluded"; `notes` must then say
+#        why (artifact, unassigned cluster, ambiguous doublet, ...).
+#      * validator.py then confronts every row with THIS cohort's own marker
+#        data (check `celltype:marker_evidence`) and blocks the ingest if a
+#        material contradiction has no recorded justification. To keep a
+#        contradicted row, put the reason in `evidence_override` — never reach
+#        for --force, which suppresses every check at once.
 # ---------------------------------------------------------------------------
-CELLTYPE_MAP = {
-    # "CD4+ T cell": "immune",
-    # "CD8+ T cell": "immune",
-    # "B cell": "immune",
-    # "Macrophage": "immune",
-    # "Tumor cell": "tumour",
-    # "Fibroblast": "stromal",
-    # "Endothelial": "stromal",
-}
+CELLTYPE_MAP = registry.celltype_map(DATASET_NAME)
 
 # ---------------------------------------------------------------------------
 # 5. Normalisation — does the marker data still need arcsinh, or is it

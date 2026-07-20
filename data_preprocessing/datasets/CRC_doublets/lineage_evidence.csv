@@ -1,0 +1,30 @@
+native_label,n_cells,declared,predicted,margin,z_immune,z_tumour,z_stromal,verdict
+tumor cells,47602,tumour,tumour,4.516,-0.872,3.925,-0.591,AGREE
+smooth muscle,27817,stromal,stromal,3.187,-0.877,-0.464,2.723,AGREE
+granulocytes,22144,immune,immune,1.384,1.284,-0.101,-0.509,AGREE
+stroma,20139,stromal,stromal,0.36,-0.997,-0.482,-0.122,AGREE
+B cells,13043,immune,immune,2.578,2.028,-0.579,-0.551,AGREE
+vasculature,11725,stromal,stromal,3.253,-0.969,-0.535,2.718,AGREE
+Tregs,2791,immune,immune,0.43,-0.025,-0.485,-0.456,AGREE
+CD4+ T cells,2303,immune,immune,1.054,0.798,-0.255,-0.601,AGREE
+immune cells / vasculature,2153,stromal,stromal,0.693,-0.431,0.233,0.926,AGREE
+CD68+ macrophages,2108,immune,immune,0.498,0.131,-0.367,-0.503,AGREE
+CD11b+CD68+ macrophages,1500,immune,immune,0.797,0.715,-0.225,-0.082,AGREE
+nerves,659,stromal,stromal,0.336,0.118,-0.471,0.453,AGREE
+CD11c+ DCs,400,immune,immune,2.311,1.708,-0.607,-0.603,AGREE
+lymphatics,328,stromal,stromal,3.231,-0.964,-0.459,2.772,AGREE
+NK cells,323,immune,immune,0.627,1.529,0.901,-0.18,AGREE
+CD3+ T cells,189,immune,immune,1.812,1.427,-0.386,-0.581,AGREE
+CD68+ macrophages GzmB+,183,immune,immune,1.685,1.572,-0.113,-0.433,AGREE
+CD68+CD163+ macrophages,39596,immune,immune,0.106,-0.108,-0.214,-0.416,AMBIGUOUS
+CD8+ T cells,16675,immune,immune,0.114,-0.178,-0.292,-0.418,AMBIGUOUS
+CD4+ T cells CD45RO+,16661,immune,tumour,0.009,-0.218,-0.209,-0.477,AMBIGUOUS
+immune cells,3127,immune,tumour,0.086,-1.004,-0.469,-0.555,AMBIGUOUS
+adipocytes,1811,stromal,stromal,0.206,-1.01,-0.555,-0.349,AMBIGUOUS
+tumor cells / immune cells,1797,tumour,tumour,0.084,-1.023,-0.527,-0.611,AMBIGUOUS
+plasma cells,8510,immune,tumour,1.84,1.172,3.013,0.28,CONTRADICTED (accepted)
+CD11b+ monocytes,815,immune,tumour,0.408,-1.004,-0.192,-0.6,CONTRADICTED (accepted)
+CD4+ T cells GATA3+,67,immune,tumour,0.529,-0.315,0.214,-0.583,CONTRADICTED (accepted)
+CD163+ macrophages,38,immune,stromal,0.593,-0.745,-0.25,0.343,CONTRADICTED (accepted)
+dirt,7357,(excluded),tumour,0.533,-0.924,-0.043,-0.576,EXCLUDED
+undefined,6524,(excluded),tumour,0.414,-0.818,-0.005,-0.419,EXCLUDED

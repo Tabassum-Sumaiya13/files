@@ -14,6 +14,9 @@ from pathlib import Path
 
 import pandas as pd
 
+import lineage_evidence
+import markers
+import registry
 import schema
 from report import ValidationReport
 
@@ -33,6 +36,16 @@ def validate_dataset(cfg) -> ValidationReport:
     """cfg is an adapter_config module — see datasets/_template/adapter_config.py."""
     report = ValidationReport(dataset_name=cfg.DATASET_NAME)
     print(f"\n{'=' * 70}\n  VALIDATING: {cfg.DATASET_NAME}\n{'=' * 70}")
+
+    # Pin this report to the exact mapping and marker vocabulary that produced it.
+    report.provenance = [
+        f"Cell-type registry: `celltype_registry.csv` "
+        f"v{registry.REGISTRY_VERSION}, fingerprint `{registry.registry_fingerprint()}`",
+        f"Marker vocabulary: `markers.py` v{markers.VOCABULARY_VERSION}",
+        f"Lineage vocabulary: {schema.LINEAGES}",
+        "Lineage is derived from each row's Cell Ontology term via "
+        "`schema.CL_LINEAGE_ANCHOR`, not chosen per row.",
+    ]
 
     # 1. Files exist -----------------------------------------------------
     paths = {
@@ -160,6 +173,8 @@ def validate_dataset(cfg) -> ValidationReport:
     )
 
     # 8. Cell-type taxonomy mapping coverage --------------------------------
+    # The map itself comes from celltype_registry.csv (see registry.py), not from
+    # a hardcoded dict. cfg.CELLTYPE_MAP is the registry view for this dataset.
     native_types = set(locations[schema.CLUSTER_LABEL_COL].astype(str).unique())
     celltype_map = getattr(cfg, "CELLTYPE_MAP", {})
     mapped = {t for t in native_types if t in celltype_map}
@@ -172,35 +187,74 @@ def validate_dataset(cfg) -> ValidationReport:
         report.add("celltype:mapping", "FAIL", "CELLTYPE_MAP is empty — no native cell type maps to a lineage")
     elif unmapped:
         n_unmapped_cells = int(locations[schema.CLUSTER_LABEL_COL].astype(str).isin(unmapped).sum())
+        reasons = registry.excluded_types(cfg.DATASET_NAME)
+        undocumented = sorted(unmapped - set(reasons))
         report.add("celltype:mapping", "WARN",
                    f"{len(mapped)}/{len(native_types)} native types mapped "
                    f"({n_unmapped_cells:,}/{len(locations):,} cells unmapped) — "
-                   f"unmapped types dropped at processing: {sorted(unmapped)[:10]}")
+                   f"unmapped types dropped at processing: {sorted(unmapped)[:10]}"
+                   + (f"; {len(undocumented)} of them have NO recorded reason in the "
+                      f"registry: {undocumented[:6]}" if undocumented
+                      else "; every exclusion has a recorded reason in the registry"))
     else:
         report.add("celltype:mapping", "PASS", f"all {len(native_types)} native types mapped to a lineage")
 
+    # 8b. Registry provenance — the checks a hardcoded dict could never have ---
+    for name, status, detail in registry.validate_registry(
+            cfg.DATASET_NAME, native_labels=sorted(native_types)):
+        report.add(f"celltype:{name.split(':', 1)[1]}", status, detail)
+
     # 9. Marker panel overlap with feature-critical markers ------------------
-    have_lineage = [m for m in schema.LINEAGE_VALIDATION_MARKERS if m in marker_cols]
+    # Resolution is normalised + alias-aware (markers.py). The previous version
+    # used exact string equality and therefore reported "0/10 lineage markers"
+    # for CRC, whose panel carries 'CD45 - hematopoietic cells:Cyc_4_ch_2'.
+    have_lineage, miss_lineage = markers.resolve_panel(schema.LINEAGE_VALIDATION_MARKERS, marker_cols)
     report.add(
         "markers:lineage_validation",
         "PASS" if len(have_lineage) >= 4 else "WARN",
-        f"{len(have_lineage)}/{len(schema.LINEAGE_VALIDATION_MARKERS)} canonical lineage markers present: {have_lineage} "
-        f"(used to sanity-check CELLTYPE_MAP against expression, not required to proceed)",
+        f"{len(have_lineage)}/{len(schema.LINEAGE_VALIDATION_MARKERS)} canonical lineage markers "
+        f"resolved (vocabulary v{markers.VOCABULARY_VERSION}): {sorted(have_lineage)}"
+        + (f"; not found: {miss_lineage}" if miss_lineage else ""),
     )
-    have_node = {feat: mk for feat, (mk, _) in schema.NODE_MARKER_FEATURES.items() if mk in marker_cols}
+    node_markers = {mk for mk, _ in schema.NODE_MARKER_FEATURES.values()}
+    have_node_mk, _ = markers.resolve_panel(sorted(node_markers), marker_cols)
+    have_node = [f for f, (mk, _) in schema.NODE_MARKER_FEATURES.items() if mk in have_node_mk]
     report.add(
         "markers:node_features",
         "PASS" if len(have_node) > 0 else "WARN",
         f"{len(have_node)}/{len(schema.NODE_MARKER_FEATURES)} node-marker features reproducible on this cohort: "
-        f"{list(have_node) if have_node else '(none)'}",
+        f"{sorted(have_node) if have_node else '(none)'}",
     )
-    have_recommended = [m for m in schema.RECOMMENDED_MARKER_SET if m in marker_cols]
+    have_recommended, miss_recommended = markers.resolve_panel(schema.RECOMMENDED_MARKER_SET, marker_cols)
     report.add(
         "markers:recommended_pair",
-        "PASS" if len(have_recommended) == len(schema.RECOMMENDED_MARKER_SET) else "WARN",
+        "PASS" if not miss_recommended else "WARN",
         f"this project's best config needs {schema.RECOMMENDED_MARKER_SET} (C=0.733, RESULT_REPORT.md Table 5); "
-        f"present here: {have_recommended if have_recommended else '(none)'}",
+        f"resolved here: {sorted(have_recommended) if have_recommended else '(none)'}"
+        + (f"; missing: {miss_recommended}" if miss_recommended else ""),
     )
+
+    # 11. FALSIFIABILITY GATE — confront the registry with the marker data ----
+    # Replaces the orphaned spatial_positional_encoding/src/validate_groups.py,
+    # which was never wired into ingest and could not run (dead absolute paths).
+    try:
+        table, note = lineage_evidence.evaluate(locations, expression, marker_cols, celltype_map)
+    except Exception as exc:  # never let the gate break an otherwise valid ingest
+        table, note = None, f"check errored: {type(exc).__name__}: {exc}"
+    if table is None:
+        report.add("celltype:marker_evidence", "WARN",
+                   f"registry could NOT be confronted with marker evidence — {note}")
+    else:
+        overrides = registry.evidence_overrides(cfg.DATASET_NAME)
+        status, detail = lineage_evidence.summarise(table, overrides)
+        report.add("celltype:marker_evidence", status, f"{detail} [{note}]")
+        table = table.copy()
+        table["verdict"] = [
+            "CONTRADICTED (accepted)" if (v == "CONTRADICTED" and lab in overrides) else v
+            for v, lab in zip(table["verdict"], table["native_label"])
+        ]
+        report.evidence_table = table
+        report.overrides = overrides
 
     # 10. Missingness ---------------------------------------------------------
     n_null_xy = int(locations[[schema.X_COL, schema.Y_COL]].isnull().sum().sum())

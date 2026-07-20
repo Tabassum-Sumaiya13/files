@@ -56,6 +56,14 @@ def main():
     print(f"\n{report.to_markdown()}\n")
     print(f"Validation report written to {report_path}")
 
+    # Machine-readable form of the marker-evidence table, so the downstream
+    # sensitivity analysis (run_verify.py --perturb-map) can read which lineage
+    # the evidence predicted for each contested cluster instead of parsing markdown.
+    if getattr(report, "evidence_table", None) is not None:
+        ev_path = dataset_dir / "lineage_evidence.csv"
+        report.evidence_table.to_csv(ev_path, index=False)
+        print(f"Marker-evidence table written to {ev_path}")
+
     if args.validate_only:
         return
 

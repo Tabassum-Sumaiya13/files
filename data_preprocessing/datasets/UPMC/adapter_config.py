@@ -16,6 +16,8 @@ Run:
 """
 from pathlib import Path
 
+import registry
+
 DATASET_NAME = "UPMC"
 
 # ---------------------------------------------------------------------------
@@ -76,28 +78,18 @@ def marker_columns(expression_df) -> list:
 
 
 # ---------------------------------------------------------------------------
-# 4. Cell-type -> lineage taxonomy. The canonical 16-type UPMC mapping
-#    (schema.UPMC_CANONICAL_CELLTYPES). Verified to match the CLUSTER_LABEL
-#    values on disk exactly.
+# 4. Cell-type -> lineage taxonomy.
+#
+#    NOT hardcoded here any more. The mapping lives in
+#    ../../celltype_registry.csv — one row per native label, each carrying a
+#    Cell Ontology term, a source citation, and a verification flag. Lineage is
+#    derived from the CL term via schema.CL_LINEAGE_ANCHOR, so it is not a free
+#    choice per row, and validator.py confronts every row with this cohort's own
+#    marker data (check `celltype:marker_evidence`).
+#
+#    To change a mapping, edit the registry — not this file.
 # ---------------------------------------------------------------------------
-CELLTYPE_MAP = {
-    "APC": "immune",
-    "B cell": "immune",
-    "CD4 T cell": "immune",
-    "CD8 T cell": "immune",
-    "Granulocyte": "immune",
-    "Macrophage": "immune",
-    "Naive immune cell": "immune",
-    "Tumor": "tumour",
-    "Tumor (CD15+)": "tumour",
-    "Tumor (CD20+)": "tumour",
-    "Tumor (CD21+)": "tumour",
-    "Tumor (Ki67+)": "tumour",
-    "Tumor (Podo+)": "tumour",
-    "Lymph vessel": "stromal",
-    "Stromal / Fibroblast": "stromal",
-    "Vessel": "stromal",
-}
+CELLTYPE_MAP = registry.celltype_map(DATASET_NAME)
 
 # ---------------------------------------------------------------------------
 # 5. Normalisation — labeled_arcsinh_norm_data.csv is ALREADY arcsinh-normalised

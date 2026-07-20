@@ -1,0 +1,17 @@
+native_label,n_cells,declared,predicted,margin,z_immune,z_tumour,z_stromal,verdict
+Tumor (Ki67+),39796,tumour,tumour,1.159,-0.809,0.786,-0.372,AGREE
+Tumor,32948,tumour,tumour,1.01,-0.964,0.151,-0.859,AGREE
+Macrophage,30743,immune,immune,1.627,1.302,-0.598,-0.325,AGREE
+CD4 T cell,28570,immune,immune,1.559,0.953,-0.937,-0.606,AGREE
+CD8 T cell,23361,immune,immune,0.952,0.547,-0.405,-0.596,AGREE
+Stromal / Fibroblast,23075,stromal,stromal,1.617,-0.915,-1.195,0.702,AGREE
+B cell,20021,immune,immune,2.089,1.536,-1.171,-0.553,AGREE
+Tumor (CD15+),18351,tumour,tumour,2.332,-0.925,1.499,-0.833,AGREE
+Tumor (CD21+),16108,tumour,tumour,2.736,-0.831,1.958,-0.778,AGREE
+Vessel,10402,stromal,stromal,2.917,-0.727,-1.202,2.19,AGREE
+Granulocyte,7988,immune,immune,1.342,1.244,-0.098,-0.618,AGREE
+Tumor (CD20+),6287,tumour,tumour,1.09,0.059,1.15,-0.755,AGREE
+Lymph vessel,1927,stromal,stromal,0.042,1.739,0.366,1.78,AMBIGUOUS
+Tumor (Podo+),18945,tumour,stromal,0.89,-0.84,0.49,1.38,CONTRADICTED (accepted)
+APC,11419,immune,tumour,1.202,-0.8,0.502,-0.7,CONTRADICTED (accepted)
+Naive immune cell,10059,immune,stromal,1.512,-0.57,-1.294,0.943,CONTRADICTED (accepted)

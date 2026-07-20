@@ -14,6 +14,6 @@ What changed, in order, from the raw input files to the processed cohort now sit
 | filter_small_samples | 308 -> 308 samples (dropped 0 sample(s) below MIN_CELLS_PER_SAMPLE=50: []) |
 | celltype_to_lineage | all 2,061,102 cells mapped to a lineage: {'tumour': 910312, 'immune': 908224, 'stromal': 242566} |
 | normalise_coords | per-sample z-score applied to X, Y (matches spatial_positional_encoding/src/preprocess.py Step 5) |
-| merge_metadata | 308 -> 308 samples kept a survival label (0 sample(s) had no metadata row and were dropped) |
+| merge_metadata | 308 -> 308 samples kept a metadata row (0 sample(s) had no metadata row and were dropped); survival present |
 | export | 308 sample parquet files -> D:\Desktop\FYDP\FYDP final works\files\data_preprocessing\datasets\UPMC\processed\samples, manifest -> D:\Desktop\FYDP\FYDP final works\files\data_preprocessing\datasets\UPMC\processed\manifest.parquet |
 | final_cohort | 2,061,102 cells, 308 samples, 81 patients, 103 events (33.4% event rate) |

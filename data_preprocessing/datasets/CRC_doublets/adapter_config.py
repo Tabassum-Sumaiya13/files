@@ -1,33 +1,45 @@
 """
-adapter_config.py — CRC (Schürch et al. 2020 colorectal-cancer CODEX cohort).
+adapter_config.py — CRC_doublets: the CRC cohort WITH its two ambiguous doublet
+clusters included, instead of excluded.
 
-This cohort ships as a SINGLE table
-(raw/CRC_clusters_neighborhoods_markers.csv, ~258k cells, 140 tissue
-regions, 35 patients) that already contains cell locations, marker
-intensities AND the per-cell grouping columns. So all three source paths
-below point at that one file — the processor reads it three times and each
-COLUMN_MAP pulls out the columns that view needs.
+WHY THIS VARIANT EXISTS
+-----------------------
+Production CRC drops 4 native types (6.9% of cells), two of which are doublets:
+    "tumor cells / immune cells"   1,797 cells
+    "immune cells / vasculature"   2,153 cells
 
-Run:
-    python run_ingest.py --dataset CRC
+Dropping them is defensible — forcing an ambiguous doublet into one lineage is a
+guess — but the bias is NOT neutral with respect to what this project measures.
+Those cells sit at the immune-tumour interface, and three of the five spatial
+features (kl_tumor, immune_tumor, stroma_tumor) measure exactly that interface.
+Systematically deleting interface cells thins the interface before measuring it.
 
-NOTE — survival labels are NOT in this raw file (see METADATA_COLUMN_MAP
-below). The only outcome variable present is `groups` (1 = CLR /
-2 = DII). survival_day / survival_status must be supplied before
-run_ingest can complete.
+An argument that the exclusion is harmless has to be demonstrated, not asserted.
+This cohort is the demonstration: it reads the SAME raw file, mapping the two
+doublets instead of dropping them, so
+
+    run_verify.py --dataset CRC_doublets --perturb-map
+
+produces a `drop:<doublet>` scenario that reproduces production CRC exactly and a
+baseline that includes them. If no verdict differs between the two, the exclusion
+does not carry the result.
+
+This is a measurement variant, not a second cohort — do not report it as
+independent evidence.
 """
+
 from pathlib import Path
 
 import registry
 
 # A short, filesystem-safe name — must match the folder name under datasets/
-DATASET_NAME = "CRC"
+DATASET_NAME = "CRC_doublets"
 
 # ---------------------------------------------------------------------------
 # 1. Where the raw files live. This cohort is one combined table, so all
 #    three logical views resolve to the same CSV.
 # ---------------------------------------------------------------------------
-_RAW = Path(__file__).parent / "raw"
+_RAW = Path(__file__).parent.parent / "CRC" / "raw"   # same raw file as CRC
 
 _COMBINED = _RAW / "CRC_clusters_neighborhoods_markers.csv"
 LOCATIONS_PATH = _COMBINED     # per-cell X, Y, cell type

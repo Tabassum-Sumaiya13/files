@@ -58,7 +58,7 @@ def _banner(t: str):
 # ---------------------------------------------------------------------------
 # Category vocabulary + fixed lineage grouping (shared across the whole cohort)
 # ---------------------------------------------------------------------------
-def build_vocab(cohort, label_col: str):
+def build_vocab(cohort, label_col: str, remap=None):
     """Return (categories, immune_idx, tumour_idx, stromal_idx).
 
     categories : fixed column order so every sample's vector aligns.
@@ -72,7 +72,8 @@ def build_vocab(cohort, label_col: str):
 
     lin_counter = {}
     cats_set = set()
-    for _, df in cohort.iter_samples(columns=[label_col, "lineage"]):
+    for _, df in cohort.iter_samples(columns=[label_col, "lineage", "cluster_label"]):
+        df = apply_remap(df, remap)
         lab = df[label_col].astype(str).values
         lin = df["lineage"].astype(str).values
         for c, l in zip(lab, lin):
@@ -103,15 +104,34 @@ def _enrich(edges, idx, K, immune, tumour, stromal):
 # ---------------------------------------------------------------------------
 # Per-sample computation: real, permutation-null, split-half
 # ---------------------------------------------------------------------------
-def compute_cohort(cohort, label_col, cats, immune, tumour, stromal, n_perm, seed, limit):
+def apply_remap(df: pd.DataFrame, remap):
+    """Re-derive `lineage` from `cluster_label` under a perturbed mapping.
+
+    Used only by --perturb-map. `remap` is {native_label: lineage}; a native
+    label absent from it is DROPPED, which is exactly how the ingest processor
+    treats an unmapped type — so a leave-one-cluster-out scenario reproduces
+    what excluding that type at ingest would have done.
+    """
+    if remap is None:
+        return df
+    lin = df["cluster_label"].astype(str).map(remap)
+    return df.loc[lin.notna()].assign(lineage=lin[lin.notna()].values)
+
+
+def compute_cohort(cohort, label_col, cats, immune, tumour, stromal, n_perm, seed, limit,
+                   remap=None):
     cat_index = {c: i for i, c in enumerate(cats)}
     K = len(cats)
     rng = np.random.RandomState(seed)
 
     sids, props, real, nullz, half1, half2 = [], [], [], [], [], []
     n_deg = 0
-    read_cols = list(dict.fromkeys(["X", "Y", label_col, "lineage"]))  # dedupe (lineage==label_col)
+    read_cols = list(dict.fromkeys(["X", "Y", label_col, "lineage", "cluster_label"]))
     for sid, df in cohort.iter_samples(columns=read_cols, limit=limit):
+        df = apply_remap(df, remap)
+        if len(df) < 3:
+            n_deg += 1
+            continue
         coords = df[["X", "Y"]].values.astype(float)
         labels = df[label_col].astype(str).values
         idx = _idx_of(labels, cat_index)
@@ -294,6 +314,109 @@ def separability(res, cohort, label_col, feature_names):
 
 
 # ---------------------------------------------------------------------------
+# Sensitivity of the result to the cell-type -> lineage mapping
+# ---------------------------------------------------------------------------
+def _load_registry_module():
+    """data_preprocessing/ is a sibling package, not on the path by default."""
+    import importlib
+    dp = Path(__file__).resolve().parents[1] / "data_preprocessing"
+    if str(dp) not in sys.path:
+        sys.path.insert(0, str(dp))
+    return importlib.import_module("registry")
+
+
+def perturbation_scenarios(dataset: str):
+    """Build the map-perturbation scenarios for a cohort FROM ITS REGISTRY.
+
+    Nothing here is dataset-specific: the contested clusters are exactly the
+    registry rows carrying an `evidence_override` (i.e. the ones where marker
+    evidence disagreed with the declared lineage and a human accepted it
+    anyway). A new cohort therefore gets its own scenarios with no code change,
+    and a cohort with no contested rows gets only the baseline.
+
+    Scenarios
+      baseline      the registry as it stands
+      drop:<L>      remove cluster L entirely — "is the result carried by L?"
+      flip:<L>      reassign L to the lineage the marker evidence predicted
+      evidence-all  reassign EVERY contested cluster at once — the worst case
+
+    `flip` needs the evidence's prediction, which lives in the validation report
+    rather than the registry, so the caller supplies it via `predictions`.
+    """
+    registry = _load_registry_module()
+    base = registry.celltype_map(dataset)
+    contested = sorted(registry.evidence_overrides(dataset))
+    contested = [c for c in contested if c in base]
+    return base, contested
+
+
+def run_perturbations(cohort, args, label_col, base_map, contested, predictions):
+    """Re-run the whole verification under each perturbed mapping."""
+    scenarios = [("baseline", base_map)]
+    for lab in contested:
+        drop = {k: v for k, v in base_map.items() if k != lab}
+        scenarios.append((f"drop:{lab}", drop))
+        pred = predictions.get(lab)
+        if pred and pred != base_map.get(lab):
+            flip = dict(base_map)
+            flip[lab] = pred
+            scenarios.append((f"flip:{lab}->{pred}", flip))
+    flips = {lab: predictions[lab] for lab in contested
+             if predictions.get(lab) and predictions[lab] != base_map.get(lab)}
+    if len(flips) > 1:
+        scenarios.append(("evidence-all", {**base_map, **flips}))
+
+    rows = []
+    for name, remap in scenarios:
+        print(f"\n  [perturb] {name}  ({len(remap)} mapped types)")
+        cats, immune, tumour, stromal = build_vocab(cohort, label_col, remap=remap)
+        res = compute_cohort(cohort, label_col, cats, immune, tumour, stromal,
+                             args.perturb_n_perm, args.seed, args.limit, remap=remap)
+        if not res["sids"]:
+            print("      (no scoreable samples — skipped)")
+            continue
+        m = build_matrix(res, sf.ENRICH_FEATURE_NAMES)
+        m.insert(0, "scenario", name)
+        m.insert(1, "n_samples", len(res["sids"]))
+        rows.append(m)
+    return pd.concat(rows, ignore_index=True) if rows else pd.DataFrame()
+
+
+def report_perturbations(pert: pd.DataFrame):
+    """Print the sensitivity table and say plainly whether any verdict moved."""
+    _banner("MAP SENSITIVITY — does the result depend on the contested rows?")
+    print("  Each contested cell-type -> lineage assignment is dropped, then flipped to\n"
+          "  what the marker evidence predicted. A conclusion that survives every row\n"
+          "  here does not rest on that row being right.\n")
+
+    base = pert[pert["scenario"] == "baseline"].set_index("feature")
+    for metric, label in [("null_z_median", "null z"),
+                          ("spatial_specific", "spatial-specific"),
+                          ("stability_r", "stability r")]:
+        wide = pert.pivot(index="scenario", columns="feature", values=metric)
+        wide = wide.reindex(columns=sf.ENRICH_FEATURE_NAMES)
+        print(f"  --- {label} " + "-" * (66 - len(label)))
+        print(wide.to_string(float_format=lambda v: f"{v:+.3f}"))
+        print()
+
+    flipped = []
+    for _, r in pert.iterrows():
+        if r["scenario"] == "baseline":
+            continue
+        b = base.loc[r["feature"], "verdict"]
+        if r["verdict"] != b:
+            flipped.append((r["scenario"], r["feature"], b, r["verdict"]))
+
+    if flipped:
+        print("  VERDICT CHANGES — these conclusions DO depend on the mapping:")
+        for sc, f, was, now in flipped:
+            print(f"    {sc:34s} {f:14s} {was}  ->  {now}")
+    else:
+        print("  No verdict changed under any perturbation: every conclusion in the\n"
+              "  baseline matrix is robust to the contested cell-type assignments.")
+
+
+# ---------------------------------------------------------------------------
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dataset", required=True, help="Ingested dataset folder name (UPMC, CRC, …)")
@@ -305,6 +428,14 @@ def main():
                     help="manifest column for the optional separability check")
     ap.add_argument("--limit", type=int, default=None, help="cap samples (fast iteration)")
     ap.add_argument("--seed", type=int, default=1029)
+    ap.add_argument("--perturb-map", action="store_true",
+                    help="re-run the matrix under each contested cell-type -> lineage "
+                         "assignment dropped and flipped to what the marker evidence "
+                         "predicted; reports whether any verdict depends on the mapping")
+    ap.add_argument("--perturb-n-perm", type=int, default=5,
+                    help="permutations per perturbation scenario (default 5). Lower than "
+                         "--n-perm on purpose: the question is whether a VERDICT moves, "
+                         "not the third decimal of z, and there are many scenarios")
     args = ap.parse_args()
 
     _banner(f"FEATURE VERIFICATION — {args.dataset}  (taxonomy={args.taxonomy})")
@@ -338,6 +469,29 @@ def main():
     mpath = out_dir / f"verify_{args.taxonomy}.csv"
     matrix.to_csv(mpath, index=False)
     print(f"\n  Matrix saved: {mpath}")
+
+    if args.perturb_map:
+        base_map, contested = perturbation_scenarios(args.dataset)
+        ev_path = (Path(__file__).resolve().parents[1] / "data_preprocessing" /
+                   "datasets" / args.dataset / "lineage_evidence.csv")
+        predictions = {}
+        if ev_path.exists():
+            ev = pd.read_csv(ev_path)
+            predictions = dict(zip(ev["native_label"].astype(str), ev["predicted"].astype(str)))
+        else:
+            print(f"  [perturb] {ev_path.name} not found — flip scenarios need the marker "
+                  f"evidence; re-run the ingest to regenerate it. Drop scenarios still run.")
+        if not contested:
+            print("\n  [perturb] no contested rows in the registry for this cohort "
+                  "(no evidence_override) — nothing to perturb.")
+        else:
+            print(f"\n  [perturb] contested cell types from the registry: {contested}")
+            pert = run_perturbations(cohort, args, label_col, base_map, contested, predictions)
+            if not pert.empty:
+                report_perturbations(pert)
+                ppath = out_dir / f"perturbation_{args.taxonomy}.csv"
+                pert.to_csv(ppath, index=False)
+                print(f"\n  Sensitivity matrix saved: {ppath}")
 
     if args.label_col:
         _banner(f"OPTIONAL SEPARABILITY — predicting '{args.label_col}' (GroupKFold by patient)")

@@ -108,8 +108,10 @@ def process_dataset(cfg, out_dir, log: ChangeLog = None) -> pd.DataFrame:
         n_before = len(merged)
         merged = merged.dropna(subset=["lineage"])
         log.step("celltype_to_lineage",
-                 f"{n_unmapped:,} cells ({n_unmapped / n_before:.1%}) had a cell type not in CELLTYPE_MAP and were "
-                 f"dropped: {dropped_types[:10]} — add them to adapter_config.py to keep them",
+                 f"{n_unmapped:,} cells ({n_unmapped / n_before:.1%}) had a cell type with no lineage in the "
+                 f"cell-type registry and were dropped: {dropped_types[:10]} — to keep them, give them a "
+                 f"lineage in celltype_registry.csv (see registry.py); the reason each is currently excluded "
+                 f"is recorded in that file's `notes` column",
                  level="warn")
     else:
         log.step("celltype_to_lineage",

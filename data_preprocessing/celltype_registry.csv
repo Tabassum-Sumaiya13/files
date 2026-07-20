@@ -1,0 +1,75 @@
+dataset,native_label,lineage,cl_term_id,cl_label,source,verified,notes,evidence_override
+UPMC,APC,immune,CL:0000145,professional antigen presenting cell,UPMC head-and-neck CODEX cohort native CLUSTER_LABEL annotation (data/raw/dataset_info/cell_locations_and_labels.csv),no,CONTESTED: marker evidence puts CD45 below the cross-type mean and PanCK above it. See lineage_evidence report.,"ACCEPTED 2026-07-20. Evidence favours tumour (PanCK) over immune (CD45). 'APC' is a FUNCTIONAL grouping (professional antigen-presenting cell), not a marker-derived identity, and the source cohort's annotation is not reproducible from this panel alone. Retained as immune per the cited source annotation. Materiality is settled by the perturbation analysis (run_verify.py --perturb-map), not by this note: if a conclusion moves when APC is reassigned, this row must be revisited."
+UPMC,B cell,immune,CL:0000236,B cell,UPMC head-and-neck CODEX cohort native CLUSTER_LABEL annotation,no,,
+UPMC,CD4 T cell,immune,CL:0000624,"CD4-positive, alpha-beta T cell",UPMC head-and-neck CODEX cohort native CLUSTER_LABEL annotation,no,,
+UPMC,CD8 T cell,immune,CL:0000625,"CD8-positive, alpha-beta T cell",UPMC head-and-neck CODEX cohort native CLUSTER_LABEL annotation,no,,
+UPMC,Granulocyte,immune,CL:0000094,granulocyte,UPMC head-and-neck CODEX cohort native CLUSTER_LABEL annotation,no,,
+UPMC,Macrophage,immune,CL:0000235,macrophage,UPMC head-and-neck CODEX cohort native CLUSTER_LABEL annotation,no,,
+UPMC,Naive immune cell,immune,CL:0000738,leukocyte,UPMC head-and-neck CODEX cohort native CLUSTER_LABEL annotation,no,Generic leukocyte term - the native label names no lineage-specific subtype. Marker evidence also shows elevated CD31 (endothelial); treat as low-confidence.,"ACCEPTED 2026-07-20. Evidence favours stromal, driven by high CD31 (endothelial) - consistent with endothelial contamination of a generically-named cluster ('naive immune cell' names no subset). Retained as immune per the cited source annotation. Carried into the perturbation analysis."
+UPMC,Tumor,tumour,CL:0001063,neoplastic cell,UPMC head-and-neck CODEX cohort native CLUSTER_LABEL annotation,no,,
+UPMC,Tumor (CD15+),tumour,CL:0001063,neoplastic cell,UPMC head-and-neck CODEX cohort native CLUSTER_LABEL annotation,no,,
+UPMC,Tumor (CD20+),tumour,CL:0001063,neoplastic cell,UPMC head-and-neck CODEX cohort native CLUSTER_LABEL annotation,no,,
+UPMC,Tumor (CD21+),tumour,CL:0001063,neoplastic cell,UPMC head-and-neck CODEX cohort native CLUSTER_LABEL annotation,no,,
+UPMC,Tumor (Ki67+),tumour,CL:0001063,neoplastic cell,UPMC head-and-neck CODEX cohort native CLUSTER_LABEL annotation,no,,
+UPMC,Tumor (Podo+),tumour,CL:0001063,neoplastic cell,UPMC head-and-neck CODEX cohort native CLUSTER_LABEL annotation,no,Podoplanin-high; podoplanin is also the lymphatic-endothelial marker. Flagged for the perturbation analysis.,"ACCEPTED 2026-07-20. Genuinely ambiguous by construction: this cluster is PanCK-positive AND Podoplanin-high, and Podoplanin is simultaneously the lymphatic-endothelial anchor in the stromal panel. The max-based stromal score therefore wins on a marker the cluster is NAMED for. Retained as tumour per the cited source annotation. Carried into the perturbation analysis."
+UPMC,Lymph vessel,stromal,CL:0002138,endothelial cell of lymphatic vessel,UPMC head-and-neck CODEX cohort native CLUSTER_LABEL annotation,no,CONTESTED: CD45 z is higher than for three clusters declared immune. Possible follicular-dendritic / mixed compartment.,
+UPMC,Stromal / Fibroblast,stromal,CL:0000057,fibroblast,UPMC head-and-neck CODEX cohort native CLUSTER_LABEL annotation,no,,
+UPMC,Vessel,stromal,CL:0000115,endothelial cell,UPMC head-and-neck CODEX cohort native CLUSTER_LABEL annotation,no,,
+CRC,tumor cells,tumour,CL:0001063,neoplastic cell,"Schurch et al. 2020, Cell 182(5):1341-1359 - native ClusterName annotation as published",no,,
+CRC,CD68+CD163+ macrophages,immune,CL:0000235,macrophage,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC,smooth muscle,stromal,CL:0000192,smooth muscle cell,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC,granulocytes,immune,CL:0000094,granulocyte,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC,stroma,stromal,CL:0000057,fibroblast,"Schurch et al. 2020, Cell 182(5):1341-1359",no,Native label is the generic 'stroma'; fibroblast is the representative term.,
+CRC,CD8+ T cells,immune,CL:0000625,"CD8-positive, alpha-beta T cell","Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC,CD4+ T cells CD45RO+,immune,CL:0000897,"CD4-positive, alpha-beta memory T cell","Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC,B cells,immune,CL:0000236,B cell,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC,vasculature,stromal,CL:0000115,endothelial cell,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC,plasma cells,immune,CL:0000786,plasma cell,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,"ACCEPTED 2026-07-20. Evidence favours tumour (z=3.01) despite CD38 raising the immune score to +1.17. Plasma cells are unambiguously B-lineage on cell-identity grounds (CL:0000786), so the registry is not changed. The elevated epithelial signal is most consistent with segmentation spillover from adjacent CDX2+/PanCK+ epithelium, which plasma cells sit against in the lamina propria. Largest single contradiction in either cohort - carried into the perturbation analysis."
+CRC,immune cells,immune,CL:0000738,leukocyte,"Schurch et al. 2020, Cell 182(5):1341-1359",no,Generic leukocyte term - native label names no subtype.,
+CRC,Tregs,immune,CL:0000815,regulatory T cell,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC,CD4+ T cells,immune,CL:0000624,"CD4-positive, alpha-beta T cell","Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC,CD68+ macrophages,immune,CL:0000235,macrophage,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC,adipocytes,stromal,CL:0000136,adipocyte,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC,CD11b+CD68+ macrophages,immune,CL:0000235,macrophage,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC,CD11b+ monocytes,immune,CL:0000576,monocyte,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,"ACCEPTED 2026-07-20. Small margin (+0.41) with all three lineage scores negative - the cluster is dim across every core panel, so the argmax is weakly determined. Retained as immune per the cited source annotation."
+CRC,nerves,stromal,CL:0000125,glial cell,"Schurch et al. 2020, Cell 182(5):1341-1359",no,Identified in the panel by GFAP (glial). Enteric glia are neural-crest derived and NOT mesenchymal stroma; assigned stromal only as the closest of the three available lineages. Low confidence - included in the perturbation analysis.,
+CRC,CD11c+ DCs,immune,CL:0000451,dendritic cell,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC,lymphatics,stromal,CL:0002138,endothelial cell of lymphatic vessel,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC,NK cells,immune,CL:0000623,natural killer cell,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC,CD3+ T cells,immune,CL:0000084,T cell,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC,CD68+ macrophages GzmB+,immune,CL:0000235,macrophage,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC,CD4+ T cells GATA3+,immune,CL:0000624,"CD4-positive, alpha-beta T cell","Schurch et al. 2020, Cell 182(5):1341-1359",no,,ACCEPTED 2026-07-20. 67 cells; per-cluster marker means are unstable at this size. Retained as immune per the cited source annotation.
+CRC,CD163+ macrophages,immune,CL:0000235,macrophage,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,ACCEPTED 2026-07-20. 38 cells; per-cluster marker means are unstable at this size. Retained as immune per the cited source annotation.
+CRC,dirt,,,,"Schurch et al. 2020, Cell 182(5):1341-1359",no,EXCLUDED - imaging artifact / debris; not a cell.,
+CRC,undefined,,,,"Schurch et al. 2020, Cell 182(5):1341-1359",no,EXCLUDED - unassigned cluster; no cell identity to map.,
+CRC,immune cells / vasculature,,,,"Schurch et al. 2020, Cell 182(5):1341-1359",no,EXCLUDED - ambiguous doublet cluster spanning two lineages. Directional-bias risk: see perturbation analysis.,
+CRC,tumor cells / immune cells,,,,"Schurch et al. 2020, Cell 182(5):1341-1359",no,EXCLUDED - ambiguous doublet cluster at the immune-tumour interface. This is exactly what immune_tumor measures; see perturbation analysis.,
+CRC_doublets,tumor cells,tumour,CL:0001063,neoplastic cell,"Schurch et al. 2020, Cell 182(5):1341-1359 - native ClusterName annotation as published",no,,
+CRC_doublets,CD68+CD163+ macrophages,immune,CL:0000235,macrophage,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC_doublets,smooth muscle,stromal,CL:0000192,smooth muscle cell,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC_doublets,granulocytes,immune,CL:0000094,granulocyte,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC_doublets,stroma,stromal,CL:0000057,fibroblast,"Schurch et al. 2020, Cell 182(5):1341-1359",no,Native label is the generic 'stroma'; fibroblast is the representative term.,
+CRC_doublets,CD8+ T cells,immune,CL:0000625,"CD8-positive, alpha-beta T cell","Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC_doublets,CD4+ T cells CD45RO+,immune,CL:0000897,"CD4-positive, alpha-beta memory T cell","Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC_doublets,B cells,immune,CL:0000236,B cell,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC_doublets,vasculature,stromal,CL:0000115,endothelial cell,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC_doublets,plasma cells,immune,CL:0000786,plasma cell,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,"ACCEPTED 2026-07-20. Evidence favours tumour (z=3.01) despite CD38 raising the immune score to +1.17. Plasma cells are unambiguously B-lineage on cell-identity grounds (CL:0000786), so the registry is not changed. The elevated epithelial signal is most consistent with segmentation spillover from adjacent CDX2+/PanCK+ epithelium, which plasma cells sit against in the lamina propria. Largest single contradiction in either cohort - carried into the perturbation analysis."
+CRC_doublets,immune cells,immune,CL:0000738,leukocyte,"Schurch et al. 2020, Cell 182(5):1341-1359",no,Generic leukocyte term - native label names no subtype.,
+CRC_doublets,Tregs,immune,CL:0000815,regulatory T cell,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC_doublets,CD4+ T cells,immune,CL:0000624,"CD4-positive, alpha-beta T cell","Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC_doublets,CD68+ macrophages,immune,CL:0000235,macrophage,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC_doublets,adipocytes,stromal,CL:0000136,adipocyte,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC_doublets,CD11b+CD68+ macrophages,immune,CL:0000235,macrophage,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC_doublets,CD11b+ monocytes,immune,CL:0000576,monocyte,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,"ACCEPTED 2026-07-20. Small margin (+0.41) with all three lineage scores negative - the cluster is dim across every core panel, so the argmax is weakly determined. Retained as immune per the cited source annotation."
+CRC_doublets,nerves,stromal,CL:0000125,glial cell,"Schurch et al. 2020, Cell 182(5):1341-1359",no,Identified in the panel by GFAP (glial). Enteric glia are neural-crest derived and NOT mesenchymal stroma; assigned stromal only as the closest of the three available lineages. Low confidence - included in the perturbation analysis.,
+CRC_doublets,CD11c+ DCs,immune,CL:0000451,dendritic cell,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC_doublets,lymphatics,stromal,CL:0002138,endothelial cell of lymphatic vessel,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC_doublets,NK cells,immune,CL:0000623,natural killer cell,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC_doublets,CD3+ T cells,immune,CL:0000084,T cell,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC_doublets,CD68+ macrophages GzmB+,immune,CL:0000235,macrophage,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,
+CRC_doublets,CD4+ T cells GATA3+,immune,CL:0000624,"CD4-positive, alpha-beta T cell","Schurch et al. 2020, Cell 182(5):1341-1359",no,,ACCEPTED 2026-07-20. 67 cells; per-cluster marker means are unstable at this size. Retained as immune per the cited source annotation.
+CRC_doublets,CD163+ macrophages,immune,CL:0000235,macrophage,"Schurch et al. 2020, Cell 182(5):1341-1359",no,,ACCEPTED 2026-07-20. 38 cells; per-cluster marker means are unstable at this size. Retained as immune per the cited source annotation.
+CRC_doublets,dirt,,,,"Schurch et al. 2020, Cell 182(5):1341-1359",no,EXCLUDED - imaging artifact / debris; not a cell.,
+CRC_doublets,undefined,,,,"Schurch et al. 2020, Cell 182(5):1341-1359",no,EXCLUDED - unassigned cluster; no cell identity to map.,
+CRC_doublets,immune cells / vasculature,stromal,CL:0000115,endothelial cell,"Schurch et al. 2020, Cell 182(5):1341-1359",no,Ambiguous doublet cluster. Excluded in production CRC; mapped here to quantify whether that exclusion matters.,INCLUDED for the exclusion-bias test. Doublet spanning immune and vasculature; assigned stromal because that is what the marker evidence predicts (z_stromal +0.93). --perturb-map drops and flips it.
+CRC_doublets,tumor cells / immune cells,tumour,CL:0001063,neoplastic cell,"Schurch et al. 2020, Cell 182(5):1341-1359",no,Ambiguous doublet cluster. Excluded in production CRC; mapped here to quantify whether that exclusion matters.,INCLUDED for the exclusion-bias test. Doublet spanning tumour and immune; assigned tumour because that is what the marker evidence predicts for it in the CRC report. There is no correct answer - that is the point. --perturb-map drops and flips it.

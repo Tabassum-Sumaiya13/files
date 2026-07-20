@@ -21,6 +21,15 @@ class ValidationReport:
     def __init__(self, dataset_name: str):
         self.dataset_name = dataset_name
         self.checks: List[Check] = []
+        # Per-cluster marker-evidence table from lineage_evidence.evaluate(),
+        # attached by validator.py when the falsifiability gate could run.
+        # Rendered in full below the check table so a contradiction can be read
+        # off directly rather than inferred from a one-line summary.
+        self.evidence_table = None
+        # {native_label: justification} for contradictions accepted in the registry.
+        self.overrides: dict = {}
+        # Provenance of the cell-type mapping used for this run.
+        self.provenance: List[str] = []
 
     def add(self, name: str, status: str, detail: str):
         assert status in ("PASS", "WARN", "FAIL")
@@ -61,6 +70,46 @@ class ValidationReport:
         for c in self.checks:
             detail = c.detail.replace("|", "\\|")
             lines.append(f"| {c.name} | {c.status} | {detail} |")
+
+        if self.provenance:
+            lines += ["", "## Cell-type mapping provenance", ""] + \
+                     [f"- {p}" for p in self.provenance]
+
+        if self.evidence_table is not None and len(self.evidence_table):
+            lines += [
+                "",
+                "## Marker evidence per native cluster",
+                "",
+                "Each cluster's mean marker profile, z-scored across clusters, scored "
+                "against the three lineage core panels (`schema.LINEAGE_MARKER_PANELS`). "
+                "`predicted` is the argmax; `margin` is top minus runner-up. "
+                "**AGREE** = evidence supports the registry. "
+                "**AMBIGUOUS** = margin too small to decide either way. "
+                "**CONTRADICTED** = evidence favours a different lineage by a clear margin — "
+                "the registry row must be justified in its `notes` or changed, and carried "
+                "into `run_verify.py --perturb-map`.",
+                "",
+                "| " + " | ".join(self.evidence_table.columns) + " |",
+                "|" + "---|" * len(self.evidence_table.columns),
+            ]
+            for row in self.evidence_table.itertuples(index=False):
+                lines.append("| " + " | ".join(str(v) for v in row) + " |")
+
+        if self.overrides:
+            lines += [
+                "",
+                "## Accepted contradictions",
+                "",
+                "Contradictions kept deliberately, each with a written reason recorded in "
+                "`celltype_registry.csv` (`evidence_override`). These are downgraded from "
+                "blocking to reported — never hidden. They are still counted above and are "
+                "still carried into the perturbation analysis, which is what decides whether "
+                "any conclusion actually depends on them.",
+                "",
+            ]
+            for label, reason in self.overrides.items():
+                lines.append(f"- **{label}** — {reason}")
+
         return "\n".join(lines)
 
     def save(self, path: Path):

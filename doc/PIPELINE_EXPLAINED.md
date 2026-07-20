@@ -110,6 +110,27 @@ These come in two resolutions:
 - **lineage** (3 categories) — portable, comparable across datasets.
 - **native** (`cluster_label`, 16 for UPMC / 29 for CRC) — finer detail.
 
+**Both resolutions depend on the cell-type → lineage mapping**, and it is worth
+being precise about how much. Under `--taxonomy native` the category *vocabulary*
+is built from whatever labels exist, but `build_vocab` still groups those
+categories into immune / tumour / stromal buckets by the majority `lineage` of
+their cells — and `lineage` was assigned from the registry at ingest. So:
+
+| feature | needs the mapping? |
+|---|---|
+| `kl_mean` | no — only needs *a* partition of the cells |
+| `self_enrich` | no |
+| `kl_tumor` | **yes**, at both resolutions |
+| `immune_tumor` | **yes**, at both resolutions |
+| `stroma_tumor` | **yes**, at both resolutions |
+
+The mapping is therefore not a detail of ingest: three of the five headline
+features are defined in terms of it. That is why it is a cited, versioned,
+ontology-grounded registry that marker evidence can contradict
+(`data_preprocessing/celltype_registry.csv`, see doc/CELLTYPE_MAPPING.md), and
+why `run_verify.py --perturb-map` re-runs the whole matrix with every contested
+assignment dropped and flipped.
+
 The **baseline** every feature is tested against is *composition* — the fraction of
 each cell type in the sample. That is the "boring" explanation: "you only need to
 know how much tumour there is, not where it is." A feature only matters if it beats
