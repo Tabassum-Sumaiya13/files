@@ -20,7 +20,7 @@ A FAIL means the schema requirement in schema.py is not met and processing will 
 | grouping:patient_id | PASS | 35 unique patients across 140 samples (needed for patient-grouped CV — a single patient_id would leak across folds) |
 | sample_size | PASS | 0/140 samples below MIN_CELLS_PER_SAMPLE=50 (median cells/sample=1979) — small samples are dropped during processing |
 | celltype:mapping | WARN | 25/29 native types mapped (17,831/258,385 cells unmapped) — unmapped types dropped at processing: ['dirt', 'immune cells / vasculature', 'tumor cells / immune cells', 'undefined']; every exclusion has a recorded reason in the registry |
-| celltype:rows | PASS | 29 rows (v1.0.0, fingerprint 7d71f04d9c94): 25 mapped, 4 deliberately excluded |
+| celltype:rows | PASS | 29 rows (v1.0.0, fingerprint de43398abc3a): 25 mapped, 4 deliberately excluded |
 | celltype:unique_labels | PASS | no duplicate native_label rows |
 | celltype:lineage_vocabulary | PASS | all lineage values in ('immune', 'tumour', 'stromal') |
 | celltype:cl_grounding | PASS | all 25 mapped rows carry a CL term whose anchor matches the declared lineage |
@@ -37,7 +37,7 @@ A FAIL means the schema requirement in schema.py is not met and processing will 
 
 ## Cell-type mapping provenance
 
-- Cell-type registry: `celltype_registry.csv` v1.0.0, fingerprint `7d71f04d9c94`
+- Cell-type registry: `celltype_registry.csv` v1.0.0, fingerprint `de43398abc3a`
 - Marker vocabulary: `markers.py` v1.0.0
 - Lineage vocabulary: ('immune', 'tumour', 'stromal')
 - Lineage is derived from each row's Cell Ontology term via `schema.CL_LINEAGE_ANCHOR`, not chosen per row.

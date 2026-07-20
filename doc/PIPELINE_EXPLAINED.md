@@ -161,12 +161,13 @@ for each step into `processing_report.md`:
 | 2 | dedup on `(acquisition_id, cell_id)` | processor.py:58-64 | |
 | 3 | drop null X/Y, drop null marker values | processor.py:67-73 | |
 | 4 | `arcsinh(x / cofactor)` on markers | processor.py:79-84 | skipped when `APPLY_ARCSINH=False` (UPMC) |
-| 5 | inner-merge locations + expression | processor.py:87-92 | unmatched location rows dropped |
-| 6 | drop samples below `MIN_CELLS_PER_SAMPLE` | processor.py:95-101 | |
-| 7 | `cluster_label → lineage` | processor.py:104-118 | **unmapped cells are dropped**, with a WARN listing the types |
-| 8 | per-sample z-score of X and Y | processor.py:121-128 | |
-| 9 | merge patient_id + survival | processor.py:131-142 | survival optional → `NaN` |
-| 10 | write one parquet/sample + manifest + marker list | processor.py:145-163 | |
+| 5 | drop marker columns from the *locations* view | processor.py:86-101 | only fires when a cohort ships locations+expression as one file (CRC) — see §11 |
+| 6 | inner-merge locations + expression | processor.py:103-108 | unmatched location rows dropped |
+| 7 | drop samples below `MIN_CELLS_PER_SAMPLE` | processor.py:110-116 | |
+| 8 | `cluster_label → lineage` | processor.py:119-133 | **unmapped cells are dropped**, with a WARN listing the types |
+| 9 | per-sample z-score of X and Y | processor.py:136-144 | |
+| 10 | merge patient_id + survival | processor.py:146-157 | survival optional → `NaN` |
+| 11 | write one parquet/sample + manifest + marker list | processor.py:160-189 | |
 
 Result on the two production cohorts:
 
@@ -602,28 +603,54 @@ python run_survival.py
 
 ---
 
-## 11. Known issue — CRC's processed marker columns are unusable
+## 11. Fixed — the single-file marker-column collision
 
-CRC's adapter points `LOCATIONS_PATH` and `EXPRESSION_PATH` at the *same* combined
-CSV, so both frames carry all 56 marker columns. The inner merge at
-processor.py:89 therefore suffixes them — `CD44 - stroma:Cyc_2_ch_2_x` (**raw,
-un-normalised**, from locations) and `..._y` (arcsinh-normalised, from expression),
-112 columns in total. But processor.py:161 writes the *unsuffixed* names to
-`marker_columns.txt`:
+**The defect (2026-07-20, now fixed).** CRC's adapter points `LOCATIONS_PATH` and
+`EXPRESSION_PATH` at the *same* combined CSV, so both frames carried all 56 marker
+columns. The expression view was subset to `[acq, cell] + marker_cols` before the
+merge, but the locations view was passed in whole — so pandas suffixed the
+collision into `CD44 - stroma:Cyc_2_ch_2_x` (**raw, pre-arcsinh**, from locations)
+and `..._y` (normalised, from expression), 112 columns in total, while
+`marker_columns.txt` recorded the *unsuffixed* names. Result: it named 56 columns
+that existed in no parquet.
 
-| cohort | markers listed in `marker_columns.txt` | actually present in the parquets |
-|---|---|---|
-| UPMC | 39 | 39 ✅ |
-| CRC | 56 | **0** ❌ |
-| CRC_doublets | 56 | **0** ❌ |
+The one-sided subsetting was the whole bug. The validator's falsifiability gate
+(lineage_evidence.py:132-138) already subsets *both* views correctly, and CRC's
+adapter already documents the intended behaviour — *"the processor reads it three
+times and each COLUMN_MAP pulls out the columns that view needs."* The processor
+simply didn't implement the second half of that sentence.
 
-**Impact on the results in §5: none.** `run_verify.py` reads only
-`X, Y, lineage, cluster_label`, so every number above stands. But
-`cohort.marker_columns` is broken for CRC, and any marker-based downstream
-(`marker_states.py` node features, or a marker block in a future comparison) will
-either raise `KeyError` on CRC or silently pick up the raw `_x` copy there while
-using normalised values on UPMC.
+**The fix** (processor.py, before the merge): drop from `locations` only those
+columns that collide with `marker_cols`, and log the drop as a numbered step so it
+appears in `processing_report.md` like every other transformation. Splitting the
+raw CSV into three files was considered and rejected — it would have fixed CRC
+while leaving the engine wrong for the next single-file cohort, and it would have
+inserted an unlogged reshaping step upstream of the validator, which is exactly
+what the two-report audit trail exists to prevent.
 
-**Fix:** drop the marker columns from `locations` before the merge in
-`process_dataset` (or merge with `suffixes=("", "_dup")` and drop `_dup`), then
-re-ingest CRC and CRC_doublets.
+**After re-ingesting CRC and CRC_doublets:**
+
+| cohort | markers listed | present in parquets | suffixed cols | total cols |
+|---|---|---|---|---|
+| UPMC | 39 | 39 ✅ | 0 | 53 (unchanged — never affected) |
+| CRC | 56 | 56 ✅ | 0 | 157 → **101** |
+| CRC_doublets | 56 | 56 ✅ | 0 | 157 → **101** |
+
+Verified after the fix:
+
+- the surviving marker values are the **normalised** copy, not the raw one —
+  spot-checked exactly against `arcsinh(raw / 5)` on three markers
+- every non-marker native column is preserved (`groups`, `neighborhood name`,
+  `Region`, the `CD4+ICOS+`-style phenotype flags)
+- cell/sample/patient counts unchanged: CRC 240,554 / 140 / 35
+- **`verify_lineage.csv` is byte-for-byte identical before and after** on both
+  cohorts — all 5 features × 6 metrics. Confirmed by diff, not assumed: the
+  verification path reads only `X, Y, lineage, cluster_label`, so §5's numbers
+  never depended on the marker columns.
+
+**Still open (separate gap):** `groups` (the CLR/DII label) survives into the
+sample parquets but not into `manifest.parquet`, which carries only
+`acquisition_id, patient_id, n_cells, n_cell_types, survival_*`. Since
+`separability()` reads its label from the manifest, the CRC CLR/DII test described
+in §4.3 cannot currently run. Fixing it means carrying selected metadata columns
+through to the manifest.

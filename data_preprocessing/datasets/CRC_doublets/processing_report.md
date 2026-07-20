@@ -10,6 +10,7 @@ What changed, in order, from the raw input files to the processed cohort now sit
 | drop_missing:coords | 258,385 -> 258,385 rows (0 dropped for missing X/Y) |
 | drop_missing:markers | 258,385 -> 258,385 rows (0 dropped for missing marker values) |
 | normalise_markers | arcsinh(x / 5.0) applied to 56 marker columns |
+| dedup:marker_columns | dropped 56 marker column(s) from the locations view — this cohort ships locations and expression as one file, so they would otherwise collide at the merge and produce _x/_y duplicates |
 | merge_locations_expression | 258,385 location rows -> 258,385 merged rows (0 location rows had no matching expression row and were dropped) |
 | filter_small_samples | 140 -> 140 samples (dropped 0 sample(s) below MIN_CELLS_PER_SAMPLE=50: []) |
 | celltype_to_lineage | **[WARN]** 13,881 cells (5.4%) had a cell type with no lineage in the cell-type registry and were dropped: ['dirt', 'undefined'] — to keep them, give them a lineage in celltype_registry.csv (see registry.py); the reason each is currently excluded is recorded in that file's `notes` column |

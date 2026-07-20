@@ -84,6 +84,22 @@ def process_dataset(cfg, out_dir, log: ChangeLog = None) -> pd.DataFrame:
         log.step("normalise_markers", "skipped — adapter_config.APPLY_ARCSINH=False, data already normalised")
 
     # --- Merge locations + expression on (acquisition_id, cell_id) --------
+    # A cohort may ship locations and expression as ONE file (CRC does: all three
+    # adapter paths resolve to the same CSV, and each COLUMN_MAP is meant to pull
+    # out the columns its view needs). The expression view is subset below; the
+    # locations view must be too, or the marker columns exist on BOTH sides of the
+    # merge and pandas suffixes them into <marker>_x (raw, pre-arcsinh) and
+    # <marker>_y (normalised) — leaving marker_columns.txt naming columns that
+    # exist in no parquet. Only the colliding marker columns are dropped, so every
+    # other native column the cohort carries (groups, neighborhood ids, …) is kept.
+    dupes = [c for c in marker_cols if c in locations.columns]
+    if dupes:
+        locations = locations.drop(columns=dupes)
+        log.step("dedup:marker_columns",
+                 f"dropped {len(dupes)} marker column(s) from the locations view — this "
+                 f"cohort ships locations and expression as one file, so they would "
+                 f"otherwise collide at the merge and produce _x/_y duplicates")
+
     expr_for_merge = expression[[schema.ACQ_COL, schema.CELL_COL] + marker_cols]
     n_loc = len(locations)
     merged = locations.merge(expr_for_merge, on=[schema.ACQ_COL, schema.CELL_COL], how="inner")

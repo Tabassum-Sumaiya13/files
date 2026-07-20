@@ -10,9 +10,10 @@ What changed, in order, from the raw input files to the processed cohort now sit
 | drop_missing:coords | 258,385 -> 258,385 rows (0 dropped for missing X/Y) |
 | drop_missing:markers | 258,385 -> 258,385 rows (0 dropped for missing marker values) |
 | normalise_markers | arcsinh(x / 5.0) applied to 56 marker columns |
+| dedup:marker_columns | dropped 56 marker column(s) from the locations view — this cohort ships locations and expression as one file, so they would otherwise collide at the merge and produce _x/_y duplicates |
 | merge_locations_expression | 258,385 location rows -> 258,385 merged rows (0 location rows had no matching expression row and were dropped) |
 | filter_small_samples | 140 -> 140 samples (dropped 0 sample(s) below MIN_CELLS_PER_SAMPLE=50: []) |
-| celltype_to_lineage | **[WARN]** 17,831 cells (6.9%) had a cell type not in CELLTYPE_MAP and were dropped: ['dirt', 'immune cells / vasculature', 'tumor cells / immune cells', 'undefined'] — add them to adapter_config.py to keep them |
+| celltype_to_lineage | **[WARN]** 17,831 cells (6.9%) had a cell type with no lineage in the cell-type registry and were dropped: ['dirt', 'immune cells / vasculature', 'tumor cells / immune cells', 'undefined'] — to keep them, give them a lineage in celltype_registry.csv (see registry.py); the reason each is currently excluded is recorded in that file's `notes` column |
 | normalise_coords | per-sample z-score applied to X, Y (matches spatial_positional_encoding/src/preprocess.py Step 5) |
 | merge_metadata | 140 -> 140 samples kept a metadata row (0 sample(s) had no metadata row and were dropped); survival ABSENT (survival-less cohort) |
 | export | 140 sample parquet files -> D:\Desktop\FYDP\FYDP final works\files\data_preprocessing\datasets\CRC\processed\samples, manifest -> D:\Desktop\FYDP\FYDP final works\files\data_preprocessing\datasets\CRC\processed\manifest.parquet |
